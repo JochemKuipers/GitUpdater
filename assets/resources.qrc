@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/assets">
+    <file>giticon.svg</file>
+    <file>settingsicon.svg</file>
+  </qresource>
+</RCC>
