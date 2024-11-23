@@ -1,7 +1,7 @@
-<!DOCTYPE RCC>
-<RCC version="1.0">
+<RCC>
   <qresource prefix="/assets">
     <file>giticon.svg</file>
+    <file>exit.svg</file>
     <file>settingsicon.svg</file>
   </qresource>
 </RCC>

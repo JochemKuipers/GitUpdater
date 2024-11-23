@@ -6,7 +6,7 @@
 from PyQt6 import QtCore
 
 qt_resource_data = b"\
-\x00\x00\x02\x88\
+\x00\x00\x02\x93\
 <\
 ?xml version=\x221.\
 0\x22 encoding=\x22utf\
@@ -47,8 +47,74 @@ er-github\x22><path\
  3.78c0 5.42 3.3\
  6.61 6.44 7A3.3\
 7 3.37 0 0 0 9 1\
-8.13V22\x22></path>\
-</svg>\x0a\
+8.13V22\x22>GitHub \
+Logo</path></svg\
+>\x0a\
+\x00\x00\x03\xe9\
+<\
+!DOCTYPE svg PUB\
+LIC \x22-//W3C//DTD\
+ SVG 1.1//EN\x22 \x22h\
+ttp://www.w3.org\
+/Graphics/SVG/1.\
+1/DTD/svg11.dtd\x22\
+>\x0a<!-- Custom Ex\
+it Icon (X) -->\x0a\
+<svg width=\x22800p\
+x\x22 height=\x22800px\
+\x22 viewBox=\x220 0 2\
+4 24\x22 fill=\x22none\
+\x22 xmlns=\x22http://\
+www.w3.org/2000/\
+svg\x22>\x0a\x0a    <g id\
+=\x22SVGRepo_bgCarr\
+ier\x22 stroke-widt\
+h=\x220\x22/>\x0a\x0a    <g \
+id=\x22SVGRepo_trac\
+erCarrier\x22 strok\
+e-linecap=\x22round\
+\x22 stroke-linejoi\
+n=\x22round\x22/>\x0a\x0a   \
+ <g id=\x22SVGRepo_\
+iconCarrier\x22>\x0a  \
+      <path fill\
+-rule=\x22evenodd\x22 \
+clip-rule=\x22eveno\
+dd\x22 d=\x22M6.34315 \
+6.34315C6.73367 \
+5.95262 7.36683 \
+5.95262 7.75736 \
+6.34315L12 10.58\
+58L16.2426 6.343\
+15C16.6332 5.952\
+62 17.2663 5.952\
+62 17.6569 6.343\
+15C18.0474 6.733\
+67 18.0474 7.366\
+83 17.6569 7.757\
+36L13.4142 12L17\
+.6569 16.2426C18\
+.0474 16.6332 18\
+.0474 17.2663 17\
+.6569 17.6569C17\
+.2663 18.0474 16\
+.6332 18.0474 16\
+.2426 17.6569L12\
+ 13.4142L7.75736\
+ 17.6569C7.36683\
+ 18.0474 6.73367\
+ 18.0474 6.34315\
+ 17.6569C5.95262\
+ 17.2663 5.95262\
+ 16.6332 6.34315\
+ 16.2426L10.5858\
+ 12L6.34315 7.75\
+736C5.95262 7.36\
+683 5.95262 6.73\
+367 6.34315 6.34\
+315Z\x22 fill=\x22#757\
+575\x22/>\x0a    </g>\x0a\
+\x0a</svg>\x0a\
 \x00\x00\x19\xed\
 <\
 !DOCTYPE svg PUB\
@@ -477,6 +543,10 @@ qt_resource_name = b"\
 \x0a\xbdO'\
 \x00g\
 \x00i\x00t\x00i\x00c\x00o\x00n\x00.\x00s\x00v\x00g\
+\x00\x08\
+\x0f\x07WG\
+\x00e\
+\x00x\x00i\x00t\x00.\x00s\x00v\x00g\
 \x00\x10\
 \x00v\xfb\xe7\
 \x00s\
@@ -486,12 +556,14 @@ qt_resource_name = b"\
 qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x02\
+\x00\x00\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x02\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00.\x00\x00\x00\x00\x00\x01\x00\x00\x02\x8c\
+\x00\x00\x00D\x00\x00\x00\x00\x00\x01\x00\x00\x06\x84\
 \x00\x00\x01\x93Yqw\xb3\
 \x00\x00\x00\x12\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
-\x00\x00\x01\x93YrF\xda\
+\x00\x00\x01\x93Y\xf9\xeb\xb9\
+\x00\x00\x00.\x00\x00\x00\x00\x00\x01\x00\x00\x02\x97\
+\x00\x00\x01\x93Z\xe4\xaeQ\
 "
 
 def qInitResources():
