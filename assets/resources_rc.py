@@ -64,7 +64,7 @@ it Icon (X) -->\x0a\
 x\x22 height=\x22800px\
 \x22 viewBox=\x220 0 2\
 4 24\x22 fill=\x22none\
-\x22 xmlns=\x22http://\
+\x22 xmlns=\x22https://\
 www.w3.org/2000/\
 svg\x22>\x0a\x0a    <g id\
 =\x22SVGRepo_bgCarr\

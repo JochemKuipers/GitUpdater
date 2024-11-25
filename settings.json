@@ -1,0 +1,43 @@
+{
+  "categories": [
+    {
+      "name": "General",
+      "settings": [
+        {
+          "type": "text",
+          "label": "Project Name",
+          "key": "project_name",
+          "default": "My Project"
+        },
+        {
+          "type": "checkbox",
+          "label": "Dark Mode",
+          "key": "dark_mode",
+          "default": true
+        },
+        {
+          "type": "select",
+          "label": "Theme",
+          "key": "theme",
+          "default": "default",
+          "options": [
+            "default",
+            "dark",
+            "light"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Repository",
+      "settings": [
+        {
+          "type": "text",
+          "label": "Git Path",
+          "key": "git_path",
+          "default": ""
+        }
+      ]
+    }
+  ]
+}
