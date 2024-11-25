@@ -1,0 +1,61 @@
+{
+  "categories": [
+    {
+      "name": "General",
+      "settings": [
+        {
+          "type": "select",
+          "label": "Theme",
+          "key": "theme",
+          "default": "default",
+          "options": [
+            "default",
+            "dark",
+            "light"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "label": "Start on boot",
+          "key": "start_on_boot",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "label": "Start minimized",
+          "key": "start_minimized",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "label": "Check for updates on startup",
+          "key": "check_for_updates",
+          "default": true
+        }
+      ]
+    },
+    {
+      "name": "Repository",
+      "settings": [
+        {
+          "type": "text",
+          "label": "Name",
+          "key": "repo_name",
+          "default": ""
+        },
+        {
+          "type": "text",
+          "label": "Repository URL",
+          "key": "repo_url",
+          "default": ""
+        },
+        {
+          "type": "text",
+          "label": "Local Path",
+          "key": "repo_local_path",
+          "default": ""
+        }
+      ]
+    }
+  ]
+}

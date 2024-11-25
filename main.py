@@ -6,38 +6,21 @@ from assets import resources_rc
 from components.button import CustomButton
 from components.settingframe import SettingsFrame
 
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi("components/mainwindow.ui", self)  # type: ignore
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
+        self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
+        try:
+            update_repo_buttons(self)
+        except FileNotFoundError:
+            pass
 
-        # Create primary button
-        self.button = CustomButton(
-            text="Click Me",
-            connection=self.open_settings
-        )
-
-        self.repoButtonsLayout = QtWidgets.QVBoxLayout()
-        self.repoButtonsLayout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.repoButtonsLayout.setSpacing(10)
-        self.repoButtonsLayout.setContentsMargins(0, 0, 0, 0)
-
-
-        for i in range(5):
-            # Create custom button
-            button = CustomButton(
-                text=f"Button {i + 1}",
-                connection=self.open_settings
-            )
-
-            # Add button to layout
-            self.repoButtonsLayout.addWidget(button)
-
-        self.repoButtonsLayout.addStretch()
-        # Set layout to scroll area contents
-        self.repoButtonsScrollAreaContents.setLayout(self.repoButtonsLayout)
+        self.addRepoButton = self.findChild(QtWidgets.QPushButton, "addRepoButton")
+        self.addRepoButton.clicked.connect(self.open_add_repo_dialog)
 
         self.settingsButton = self.findChild(QtWidgets.QPushButton, "settingsButton")
         self.settingsButton.clicked.connect(self.open_settings)
@@ -51,117 +34,302 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settingswindow = SettingsWindow()
         self.settingswindow.show()
 
+    def open_add_repo_dialog(self):
+        dialog = QtWidgets.QInputDialog()
+        dialog.setLabelText("Enter the GitHub repository link:")
+        dialog.setWindowTitle("Add Repository")
+        dialog.setTextValue(" ")
+        dialog.setOkButtonText("Add")
+        dialog.setCancelButtonText("Cancel")
+        dialog.setWindowIcon(QtGui.QIcon(":/assets/giticon.svg"))
+        dialog.exec()
+
+        if dialog.result() == QtWidgets.QDialog.DialogCode.Accepted:
+            github_link = dialog.textValue()
+            name = github_link.split('/')[4]
+            try:
+                if not github_link.startswith("https://github.com/"):
+                    raise ValueError("Invalid GitHub link")
+
+                try:
+                    with open('repos.json', 'r+', encoding='utf-8') as f:
+                        data = json.load(f)
+                        repos = data.get('repos', [])
+                        for repo in repos:
+                            if repo['name'] == name:
+                                if repo['url'] == github_link:
+                                    raise ValueError("Repository already exists")
+                                else:
+                                    raise ValueError("Repository with the same name already exists")
+
+                        data['repos'].append({"name": name, "url": github_link})
+                        f.seek(0)
+                        json.dump(data, f, indent=4)
+                        f.truncate()
+                        update_repo_buttons(self)
+
+                except json.JSONDecodeError:
+                    with open('repos.json', 'w', encoding='utf-8') as f:
+                        json.dump([github_link], f, indent=4)
+
+                except FileNotFoundError:
+                    with open('repos.json', 'w', encoding='utf-8') as f:
+                        json.dump([github_link], f, indent=4)
+                except ValueError as e:
+                    if e.args[0] == 'Repository already exists':
+                        QtWidgets.QMessageBox.warning(self, "Error", str(e))
+                        return
+                    if e.args[0] == 'Repository with the same name already exists':
+                        overwrite_dialog = QtWidgets.QMessageBox()
+                        overwrite_dialog.setWindowTitle("Repository Already Exists")
+                        overwrite_dialog.setText("The repository already exists. Do you want to overwrite it?")
+                        overwrite_dialog.setStandardButtons(
+                            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+                        overwrite_dialog.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+                        overwrite_dialog.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+                        if overwrite_dialog.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
+                            with open('repos.json', 'r+', encoding='utf-8') as f:
+                                data = json.load(f)
+                                repos = data.get('repos', [])
+                                for repo in repos:
+                                    if repo['url'] == github_link or repo['name'] == name:
+                                        repos.remove(repo)
+                                        break
+
+                                data['repos'].append({"name": name, "url": github_link})
+                                f.seek(0)
+                                json.dump(data, f, indent=4)
+                                f.truncate()
+                                update_repo_buttons(self)
+                        else:
+                            return
+
+
+            except ValueError as e:
+                QtWidgets.QMessageBox.warning(self, "Error", str(e))
+                return
+
+            QtWidgets.QMessageBox.information(self, "Repository Added", "The repository has been added.")
+        dialog.deleteLater()
+
+
+def update_repo_buttons(self):
+    if self.repoButtonsScrollAreaContentsLayout.count() > 0:
+        clear_layout(self.repoButtonsScrollAreaContentsLayout)
+    with open('repos.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        repos = data.get('repos', [])
+        for repo in repos:
+            button = CustomButton(
+                text=repo['name'],
+                tooltip=repo['url'],
+                parent=self.repoButtonsScrollAreaContents
+            )
+            button.clicked.connect(lambda: print("clicked"))
+            button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+            button.customContextMenuRequested.connect(lambda: context_menu(self, QtGui.QCursor.pos()))
+            self.repoButtonsScrollAreaContentsLayout.addWidget(button)
+
+        self.repoButtonsScrollAreaContentsLayout.addStretch()
+
+
+def context_menu(self, pos):
+    menu = QtWidgets.QMenu()
+    delete_action = menu.addAction("Delete Repository")
+    change_name_action = menu.addAction("Change Repository Name")
+    change_url_action = menu.addAction("Change Repository URL")
+    chage_local_path_action = menu.addAction("Change Local Path")
+    action = menu.exec(pos)
+    if action == delete_action:  # Delete action
+        confirm = QtWidgets.QMessageBox()
+        confirm.setWindowTitle("Delete Repository")
+        confirm.setText("Are you sure you want to delete this repository?")
+        confirm.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+        confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+        confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
+            repo_name = self.sender().text()
+            delete_repo(self, repo_name)
+    elif action == change_name_action:  # Change name action
+        new_name, ok = QtWidgets.QInputDialog.getText(self, "Change Repository Name", "Enter the new name:")
+        if ok:
+            confirm = QtWidgets.QMessageBox()
+            confirm.setWindowTitle("Change Repository Name")
+            confirm.setText("Are you sure you want to change the name of this repository?")
+            confirm.setStandardButtons(
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+            confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
+                change_repo_name(self, self.sender().text(), new_name)
+    elif action == change_url_action:  # Change URL action
+        new_url, ok = QtWidgets.QInputDialog.getText(self, "Change Repository URL", "Enter the new URL:")
+        if ok:
+            confirm = QtWidgets.QMessageBox()
+            confirm.setWindowTitle("Change Repository URL")
+            confirm.setText("Are you sure you want to change the URL of this repository?")
+            confirm.setStandardButtons(
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+            confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
+                change_repo_url(self, self.sender().text(), new_url)
+    elif action == chage_local_path_action:  # Change local path action
+        new_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Change Local Path", "")
+        if new_path:
+            confirm = QtWidgets.QMessageBox()
+            confirm.setWindowTitle("Change Local Path")
+            confirm.setText("Are you sure you want to change the local path of this repository?")
+            confirm.setStandardButtons(
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+            confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
+                change_local_path(self, self.sender().text(), new_path)
+    else:
+        return
+
+
+def change_local_path(self, name, new_path):
+    with open('repos.json', 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        repos = data.get('repos', [])
+        for repo in repos:
+            if repo['name'] == name:
+                repo['local_path'] = new_path
+                break
+
+        data['repos'] = repos
+        f.seek(0)
+        json.dump(data, f, indent=4)
+        f.truncate()
+        update_repo_buttons(self)
+
+
+def change_repo_name(self, old_name, new_name):
+    with open('repos.json', 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        repos = data.get('repos', [])
+        for repo in repos:
+            if repo['name'] == old_name:
+                repo['name'] = new_name
+                break
+
+        data['repos'] = repos
+        f.seek(0)
+        json.dump(data, f, indent=4)
+        f.truncate()
+        update_repo_buttons(self)
+
+
+def change_repo_url(self, name, new_url):
+    with open('repos.json', 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        repos = data.get('repos', [])
+        for repo in repos:
+            if repo['name'] == name:
+                repo['url'] = new_url
+                break
+
+        data['repos'] = repos
+        f.seek(0)
+        json.dump(data, f, indent=4)
+        f.truncate()
+        update_repo_buttons(self)
+
+
+def delete_repo(self, name):
+    with open('repos.json', 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        repos = data.get('repos', [])
+        for repo in repos:
+            if repo['name'] == name:
+                repos.remove(repo)
+                break
+
+        data['repos'] = repos
+        f.seek(0)
+        json.dump(data, f, indent=4)
+        f.truncate()
+        update_repo_buttons(self)
+
+
+def clear_layout(layout):
+    while layout.count():
+        child = layout.takeAt(0)
+        if child.widget():
+            child.widget().deleteLater()
+        elif child.layout():
+            clear_layout(child.layout())
+
+
+
+
+
+
+
+
 class SettingsWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi("components/settings.ui", self)  # type: ignore
 
-        self.backButton = self.findChild(QtWidgets.QPushButton, "backButton")
-        self.backButton.clicked.connect(self.close)
+        self.setWindowTitle("Settings")
 
-        self.saveButton = self.findChild(QtWidgets.QPushButton, "saveButton")
-        self.saveButton.clicked.connect(self.save_settings)
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.setCentralWidget(self.tab_widget)
 
-        self.categoriesButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget,
-                                                                  "categoriesButtonsScrollAreaContents")
-        self.settingsScrollAreaContents = self.findChild(QtWidgets.QWidget, "settingsScrollAreaContents")
-
-        # Initialize layouts
-        self.categoriesLayout = QtWidgets.QVBoxLayout()
-        self.categoriesLayout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.categoriesLayout.setSpacing(10)
-        self.categoriesLayout.setContentsMargins(10, 10, 10, 10)
-
-        self.settingsLayout = QtWidgets.QVBoxLayout()
-        self.settingsLayout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.settingsLayout.setSpacing(10)
-        self.settingsLayout.setContentsMargins(10, 10, 10, 10)
-
-        # Store references
         self.setting_inputs = {}
-        self.current_category = None
-
-        # Load settings
         self.load_settings()
 
     def load_settings(self):
         try:
-            with open('settings.json', 'r') as f:
+            with open('config.json', 'r') as f:
                 config = json.load(f)
 
-            # Create category buttons
             for category in config['categories']:
-                # Create closure to capture category correctly
-                def make_callback(cat):
-                    return lambda: self.show_category_settings(cat)
+                tab = QtWidgets.QWidget()
+                layout = QtWidgets.QVBoxLayout()
 
-                # Create button for this category
-                category_button = CustomButton(
-                    text=category['name'],
-                    connection=make_callback(category)  # Use closure instead of direct lambda
-                )
-                self.categoriesLayout.addWidget(category_button)
+                for setting in category['settings']:
+                    setting_frame = SettingsFrame(
+                        label=setting['label'],
+                        setting_type=setting['type'],
+                        default_value=setting['default'],
+                        options=setting.get('options')
+                    )
+                    layout.addWidget(setting_frame)
 
-                # Initialize storage for this category
-                self.setting_inputs[category['name']] = {
-                    'settings': category['settings'],
-                    'widgets': {}
-                }
+                    if category['name'] not in self.setting_inputs:
+                        self.setting_inputs[category['name']] = {
+                            'settings': category['settings'],
+                            'widgets': {}
+                        }
 
-            self.categoriesLayout.addStretch()
-            self.categoriesButtonsScrollAreaContents.setLayout(self.categoriesLayout)
-            self.settingsScrollAreaContents.setLayout(self.settingsLayout)
+                    self.setting_inputs[category['name']]['widgets'][setting['key']] = {
+                        'widget': setting_frame.get_widget()
+                    }
+
+                layout.addStretch()
+                tab.setLayout(layout)
+                self.tab_widget.addTab(tab, category['name'])
 
         except Exception as e:
             print(f"Error loading settings: {e}")
-
-    def show_category_settings(self, category: dict):
-        # Clear previous settings
-        while self.settingsLayout.count():
-            widget = self.settingsLayout.takeAt(0)
-            if widget:
-                w = widget.widget()
-                if w:
-                    w.deleteLater()
-
-        # Get stored settings for this category
-        category_data = self.setting_inputs[category['name']]
-
-        # Create widgets for each setting
-        for setting in category_data['settings']:
-            setting_frame = SettingsFrame(
-                label=setting['label'],
-                setting_type=setting['type'],
-                default_value=setting['default'],
-                options=setting.get('options')
-            )
-            self.settingsLayout.addWidget(setting_frame)
-
-            # Store widget reference
-            category_data['widgets'][setting['key']] = {
-                'widget': setting_frame.get_widget()
-            }
-
-        self.settingsLayout.addStretch()
-        self.current_category = category['name']
 
     def save_settings(self):
         try:
             settings = {"categories": []}
 
-            # Iterate through stored settings
             for category_name, category_data in self.setting_inputs.items():
                 category = {
                     "name": category_name,
                     "settings": []
                 }
 
-                # Access the settings from stored data
                 for setting in category_data['settings']:
                     widget = category_data['widgets'].get(setting['key'], {}).get('widget')
                     if widget:
                         setting_type = setting['type']
-                        # Create new setting with updated value
                         new_setting = {
                             "type": setting_type,
                             "label": setting['label'],
@@ -172,8 +340,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
 
                 settings["categories"].append(category)
 
-            # Save to file
-            with open('settings.json', 'w') as f:
+            with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(settings, f, indent=4)
 
         except Exception as e:

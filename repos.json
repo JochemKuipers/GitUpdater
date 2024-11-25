@@ -1,0 +1,9 @@
+{
+  "repos": [
+    {
+      "name": "NooDS",
+      "url": "https://github.com/Hydr8gon/NooDS/releases/tag/release",
+      "local_path": "/home/jochem/Downloads"
+    }
+  ]
+}
