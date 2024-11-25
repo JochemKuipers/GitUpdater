@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QCheckBox, QComboBox
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QCheckBox, QComboBox, QFileDialog, QPushButton
 from PyQt6.QtCore import Qt
 
 
@@ -22,6 +22,7 @@ class SettingsFrame(QFrame):
         if setting_type == 'checkbox':
             self.input = QCheckBox()
             self.input.setChecked(bool(default_value))
+            self.main_layout.addWidget(self.input)
 
         elif setting_type == 'select':
             self.input = QComboBox()
@@ -30,16 +31,43 @@ class SettingsFrame(QFrame):
             if default_value:
                 self.input.setCurrentText(str(default_value))
             self.input.setMinimumWidth(150)
-
-        else:  # text input
+            self.main_layout.addWidget(self.input, stretch=3)
+        elif setting_type == 'text':
             self.input = QLineEdit()
             if default_value is not None:
                 self.input.setText(str(default_value))
             self.input.setMinimumWidth(150)
-
-        self.input.setEnabled(True)
-        self.input.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
-        self.main_layout.addWidget(self.input)
+            self.input.setCursorPosition(0)
+            self.main_layout.addWidget(self.input, stretch=3)
+        elif setting_type == 'path':
+            self.text = QLineEdit()
+            self.text.setText(str(default_value))
+            self.text.setMinimumWidth(150)
+            self.text.setCursorPosition(0)
+            self.filepicker = QFileDialog()
+            self.filepicker.setFileMode(QFileDialog.FileMode.ExistingFile)
+            self.filepicker.setOption(QFileDialog.Option.ReadOnly, True)
+            self.filepicker.fileSelected.connect(lambda path: self.text.setText(path))
+            self.input = self.text
+            self.filepicker_button = QPushButton('Browse')
+            self.filepicker_button.clicked.connect(lambda: self.filepicker.open())
+            self.filepicker_button.setMaximumWidth(100)
+            self.main_layout.addWidget(self.input, stretch=3)
+            self.main_layout.addWidget(self.filepicker_button, stretch=1)
+        elif setting_type == 'url':
+            self.input = QLineEdit()
+            self.input.setText(str(default_value))
+            self.input.setMinimumWidth(150)
+            self.input.setCursorPosition(0)
+            self.main_layout.addWidget(self.input, stretch=3)
+        elif setting_type == 'number':
+            self.input = QLineEdit()
+            self.input.setText(str(default_value))
+            self.input.setMinimumWidth(150)
+            self.input.setCursorPosition(0)
+            self.input.setValidator(Qt.QIntValidator())
+            self.main_layout.addWidget(self.input, stretch=3)
+            
 
     def getValue(self):
         if isinstance(self.input, QCheckBox):

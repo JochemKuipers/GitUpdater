@@ -3,7 +3,7 @@ import sys
 from PyQt6 import QtWidgets, uic, QtCore, QtGui
 # noinspection PyUnresolvedReferences
 from assets import resources_rc
-from components.button import CustomButton
+from components.button import ClickableElidedLabel
 from components.settingframe import SettingsFrame
 
 
@@ -11,6 +11,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi("components/mainwindow.ui", self)  # type: ignore
+        
+        self.setWindowTitle("GitUpdater")
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
         self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
@@ -32,6 +34,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_settings(self):
         if not self.settingswindow:
             self.settingswindow = SettingsWindow()
+        self.settingswindow.load_settings()
         self.settingswindow.show()
 
     def open_add_repo_dialog(self):
@@ -103,8 +106,6 @@ class MainWindow(QtWidgets.QMainWindow):
                                 update_repo_buttons(self)
                         else:
                             return
-
-
             except ValueError as e:
                 QtWidgets.QMessageBox.warning(self, "Error", str(e))
                 return
@@ -120,11 +121,8 @@ def update_repo_buttons(self):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            button = CustomButton(
-                text=repo['name'],
-                tooltip=repo['url'],
-                parent=self.repoButtonsScrollAreaContents
-            )
+            button = ClickableElidedLabel(repo['name'], repo['url'], connection=lambda: print("clicked"))
+            button.setObjectName(repo['name'])
             button.clicked.connect(lambda: print("clicked"))
             button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             button.customContextMenuRequested.connect(lambda: context_menu(self, QtGui.QCursor.pos()))
@@ -151,7 +149,7 @@ def context_menu(self, pos):
             repo_name = self.sender().text()
             delete_repo(self, repo_name)
     elif action == change_name_action:  # Change name action
-        new_name, ok = QtWidgets.QInputDialog.getText(self, "Change Repository Name", "Enter the new name:")
+        new_name, ok = QtWidgets.QInputDialog.getText(self, title="Change Repository Name", label="Enter the new name:", text=self.sender().objectName())
         if ok:
             confirm = QtWidgets.QMessageBox()
             confirm.setWindowTitle("Change Repository Name")
@@ -161,9 +159,10 @@ def context_menu(self, pos):
             confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
             confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
             if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                change_repo_name(self, self.sender().text(), new_name)
+                objectName = self.sender().objectName()
+                change_repo_name(self, objectName, new_name)
     elif action == change_url_action:  # Change URL action
-        new_url, ok = QtWidgets.QInputDialog.getText(self, "Change Repository URL", "Enter the new URL:")
+        new_url, ok = QtWidgets.QInputDialog.getText(self, "Change Repository URL", "Enter the new URL:", text=self.sender().toolTip())
         if ok:
             confirm = QtWidgets.QMessageBox()
             confirm.setWindowTitle("Change Repository URL")
@@ -173,9 +172,9 @@ def context_menu(self, pos):
             confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
             confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
             if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                change_repo_url(self, self.sender().text(), new_url)
+                change_repo_url(self, self.sender().toolTip(), new_url)
     elif action == chage_local_path_action:  # Change local path action
-        new_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Change Local Path", "")
+        new_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Change Local Path", "Pick a new local path:", QtWidgets.QFileDialog.Option.ShowDirsOnly)
         if new_path:
             confirm = QtWidgets.QMessageBox()
             confirm.setWindowTitle("Change Local Path")
@@ -262,56 +261,101 @@ def clear_layout(layout):
         elif child.layout():
             clear_layout(child.layout())
 
-
-
-
-
-
-
-
 class SettingsWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-
+        
         self.setWindowTitle("Settings")
+        
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(400)
 
         self.tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget.setElideMode(QtCore.Qt.TextElideMode.ElideRight)
         self.setCentralWidget(self.tab_widget)
 
         self.setting_inputs = {}
         self.load_settings()
+        
+        self.save_button = QtWidgets.QPushButton("Save")
+        self.save_button.clicked.connect(self.save_settings)
+        self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
 
     def load_settings(self):
+        while self.tab_widget.count() > 0:
+            self.tab_widget.removeTab(0)
         try:
             with open('config.json', 'r') as f:
                 config = json.load(f)
 
+            with open('repos.json', 'r') as repo_file:
+                repos = json.load(repo_file)
+
             for category in config['categories']:
-                tab = QtWidgets.QWidget()
-                layout = QtWidgets.QVBoxLayout()
+                if category['name'] == 'Repositories':
+                    repo_tab = QtWidgets.QWidget()
+                    repo_layout = QtWidgets.QVBoxLayout()
+                    self.repo_tab_widget = QtWidgets.QTabWidget()
 
-                for setting in category['settings']:
-                    setting_frame = SettingsFrame(
-                        label=setting['label'],
-                        setting_type=setting['type'],
-                        default_value=setting['default'],
-                        options=setting.get('options')
-                    )
-                    layout.addWidget(setting_frame)
+                    for repo in repos['repos']:
+                        repo_sub_tab = QtWidgets.QWidget()
+                        repo_sub_layout = QtWidgets.QVBoxLayout()
 
-                    if category['name'] not in self.setting_inputs:
-                        self.setting_inputs[category['name']] = {
-                            'settings': category['settings'],
-                            'widgets': {}
+                        for setting in category['settings']:
+                            repo_value = repo.get(setting['key'], setting['default'])
+                            setting_frame = SettingsFrame(
+                                label=setting['label'],
+                                setting_type=setting['type'],
+                                default_value=repo_value,
+                                options=setting.get('options')
+                            )
+                            repo_sub_layout.addWidget(setting_frame)
+
+                            if repo['name'] not in self.setting_inputs:
+                                self.setting_inputs[repo['name']] = {
+                                    'settings': category['settings'],
+                                    'widgets': {}
+                                }
+
+                            self.setting_inputs[repo['name']]['widgets'][setting['key']] = {
+                                'widget': setting_frame.get_widget()
+                            }
+
+                        repo_sub_layout.addStretch()
+                        repo_sub_tab.setLayout(repo_sub_layout)
+                        repo_sub_tab.setObjectName(repo['name'])
+                        self.repo_tab_widget.addTab(repo_sub_tab, repo['name'])
+
+                    repo_layout.addWidget(self.repo_tab_widget)
+                    repo_tab.setLayout(repo_layout)
+                    self.tab_widget.addTab(repo_tab, category['name'])
+                else:
+                    tab = QtWidgets.QWidget()
+                    layout = QtWidgets.QVBoxLayout()
+
+                    for setting in category['settings']:
+                        setting_frame = SettingsFrame(
+                            label=setting['label'],
+                            setting_type=setting['type'],
+                            default_value=setting['default'],
+                            options=setting.get('options')
+                        )
+                        layout.addWidget(setting_frame)
+
+                        if category['name'] not in self.setting_inputs:
+                            self.setting_inputs[category['name']] = {
+                                'settings': category['settings'],
+                                'widgets': {}
+                            }
+
+                        self.setting_inputs[category['name']]['widgets'][setting['key']] = {
+                            'widget': setting_frame.get_widget()
                         }
 
-                    self.setting_inputs[category['name']]['widgets'][setting['key']] = {
-                        'widget': setting_frame.get_widget()
-                    }
-
-                layout.addStretch()
-                tab.setLayout(layout)
-                self.tab_widget.addTab(tab, category['name'])
+                    layout.addStretch()
+                    tab.setLayout(layout)
+                    self.tab_widget.addTab(tab, category['name'])
+                    
 
         except Exception as e:
             print(f"Error loading settings: {e}")
@@ -330,12 +374,28 @@ class SettingsWindow(QtWidgets.QMainWindow):
                     widget = category_data['widgets'].get(setting['key'], {}).get('widget')
                     if widget:
                         setting_type = setting['type']
-                        new_setting = {
+                        if isinstance(widget, QtWidgets.QCheckBox):
+                            value = widget.isChecked()
+                        elif isinstance(widget, QtWidgets.QComboBox):
+                            value = widget.currentText()
+                        else:
+                            value = widget.text()
+                        
+                        if setting_type == 'select':
+                            new_setting = {
                             "type": setting_type,
                             "label": setting['label'],
                             "key": setting['key'],
-                            "default": widget.isChecked() if setting_type == 'checkbox' else widget.text()
+                            "options": setting.get('options'),
+                            "default": value
                         }
+                        else:
+                            new_setting = {
+                                "type": setting_type,
+                                "label": setting['label'],
+                                "key": setting['key'],
+                                "default": value
+                            }
                         category["settings"].append(new_setting)
 
                 settings["categories"].append(category)
@@ -343,8 +403,10 @@ class SettingsWindow(QtWidgets.QMainWindow):
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(settings, f, indent=4)
 
+            QtWidgets.QMessageBox.information(self, "Settings Saved", "The settings have been saved successfully.")
+
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error saving settings: {e}")
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

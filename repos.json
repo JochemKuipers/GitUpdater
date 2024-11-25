@@ -1,9 +1,14 @@
 {
-  "repos": [
-    {
-      "name": "NooDS",
-      "url": "https://github.com/Hydr8gon/NooDS/releases/tag/release",
-      "local_path": "/home/jochem/Downloads"
-    }
-  ]
+    "repos": [
+        {
+            "name": "NooDS",
+            "url": "https://github.com/Hydr8gon/NooDS/releases/tag/release",
+            "path": "/home/jochem/Downloads"
+        },
+        {
+            "name": "AutoHotkey",
+            "url": "https://github.com/JochemKuipers/AutoHotkey_SplitScreenMoveButtomToSecondMonitor_FullScreen",
+            "path": "/home/jochem/Downloads"
+        }
+    ]
 }
