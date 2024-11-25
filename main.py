@@ -24,6 +24,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.repoButtonsLayout.setSpacing(10)
         self.repoButtonsLayout.setContentsMargins(0, 0, 0, 0)
 
+
         for i in range(5):
             # Create custom button
             button = CustomButton(
