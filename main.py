@@ -4,9 +4,9 @@ from PyQt6 import QtWidgets, uic, QtCore, QtGui
 # noinspection PyUnresolvedReferences
 from assets import resources_rc
 from components.button import ClickableElidedLabel
-from settings import SettingsWindow
+from src.settings import SettingsWindow
 from components.updatesframe import UpdatesFrame
-from githubAuth import GitHub, clean_github_link
+from src.githubAuth import GitHub, clean_github_link
 from datetime import datetime
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -37,7 +37,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show()
 
     def open_settings(self):
-        if not self.settingswindow:
+        if not isinstance(self.settingswindow, SettingsWindow):
             self.settingswindow = SettingsWindow()
         self.settingswindow.load_settings()
         self.settingswindow.show()
@@ -62,12 +62,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 name = parts[3] + '/' + parts[4]
 
-                with open('repos.json', 'r+', encoding='utf-8') as f:
+                with open('data/repos.json', 'r+', encoding='utf-8') as f:
                     data = json.load(f)
                     repos = data.get('repos', [])
                     for repo in repos:
-                        if repo['name'] == name:
-                            if repo['url'] == github_link:
+                        if repo['settings']['name'] == name:
+                            if repo['settings']['url'] == github_link:
                                 raise ValueError("Repository already exists")
                             else:
                                 raise ValueError("Repository with the same name already exists")
@@ -79,11 +79,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     update_repo_buttons(self)
 
             except json.JSONDecodeError:
-                with open('repos.json', 'w', encoding='utf-8') as f:
+                with open('data/repos.json', 'w', encoding='utf-8') as f:
                     json.dump({"repos": [{"name": name, "url": github_link}]}, f, indent=4)
 
             except FileNotFoundError:
-                with open('repos.json', 'w', encoding='utf-8') as f:
+                with open('data/repos.json', 'w', encoding='utf-8') as f:
                     json.dump({"repos": [{"name": name, "url": github_link}]}, f, indent=4)
 
             except ValueError as e:
@@ -96,7 +96,7 @@ class MainWindow(QtWidgets.QMainWindow):
 def update_updates(self):
     if self.updatesScrollAreaContentsLayout.count() > 0:
         clear_layout(self.updatesScrollAreaContentsLayout)
-    with open('repos.json', 'r+', encoding='utf-8') as f:
+    with open('data/repos.json', 'r+', encoding='utf-8') as f:
         data = json.load(f)
         git = GitHub()
         repos = data.get('repos', [])
@@ -107,13 +107,13 @@ def update_updates(self):
                 asset, correct_package_name = git.find_correct_asset_in_list(latest_release, self, repo.get('correct_package_name'))
                 if asset:
                     version = git.get_asset_version(asset=asset, page=latest_release)
-                    old_version = repo['version']
+                    old_version = repo['settings']['version']
                     if old_version == version:
                         continue
                     if old_version == "":
                         old_version = "N/A"
                     updates_frame = UpdatesFrame(
-                        label=repo['name'],
+                        label=repo['settings']['name'],
                         old_version=old_version,
                         new_version=version,
                         last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -123,9 +123,9 @@ def update_updates(self):
                     )
                     self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
                     if correct_package_name:
-                        repo['correct_package_name'] = correct_package_name
+                        repo['settings']['correct_package_name'] = correct_package_name
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {repo['name']}: {e}")
+                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {repo['settings']['name']}: {e}")
             self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
         f.seek(0)
         json.dump(data, f, indent=4)
@@ -135,12 +135,12 @@ def update_updates(self):
 def update_repo_buttons(self):
     if self.repoButtonsScrollAreaContentsLayout.count() > 0:
         clear_layout(self.repoButtonsScrollAreaContentsLayout)
-    with open('repos.json', 'r', encoding='utf-8') as f:
+    with open('data/repos.json', 'r', encoding='utf-8') as f:
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            button = ClickableElidedLabel(repo['name'], repo['url'], connection=lambda: print("clicked"))
-            button.setObjectName(repo['name'])
+            button = ClickableElidedLabel(repo['settings']['name'], repo['settings']['url'], connection=lambda: print("clicked"))
+            button.setObjectName(repo['settings']['name'])
             button.clicked.connect(lambda: print("clicked"))
             button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             button.customContextMenuRequested.connect(lambda: context_menu(self, QtGui.QCursor.pos()))
@@ -208,12 +208,12 @@ def context_menu(self, pos):
 
 
 def change_local_path(self, name, new_path):
-    with open('repos.json', 'r+', encoding='utf-8') as f:
+    with open('data/repos.json', 'r+', encoding='utf-8') as f:
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['name'] == name:
-                repo['local_path'] = new_path
+            if repo['settings']['name'] == name:
+                repo['settings']['local_path'] = new_path
                 break
 
         data['repos'] = repos
@@ -224,12 +224,12 @@ def change_local_path(self, name, new_path):
 
 
 def change_repo_name(self, old_name, new_name):
-    with open('repos.json', 'r+', encoding='utf-8') as f:
+    with open('data/repos.json', 'r+', encoding='utf-8') as f:
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['name'] == old_name:
-                repo['name'] = new_name
+            if repo['settings']['name'] == old_name:
+                repo['settings']['name'] = new_name
                 break
 
         data['repos'] = repos
@@ -240,12 +240,12 @@ def change_repo_name(self, old_name, new_name):
 
 
 def change_repo_url(self, name, new_url):
-    with open('repos.json', 'r+', encoding='utf-8') as f:
+    with open('data/repos.json', 'r+', encoding='utf-8') as f:
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['name'] == name:
-                repo['url'] = new_url
+            if repo['settings']['name'] == name:
+                repo['settings']['url'] = new_url
                 break
 
         data['repos'] = repos
@@ -256,11 +256,11 @@ def change_repo_url(self, name, new_url):
 
 
 def delete_repo(self, name):
-    with open('repos.json', 'r+', encoding='utf-8') as f:
+    with open('data/repos.json', 'r+', encoding='utf-8') as f:
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['name'] == name:
+            if repo['settings']['name'] == name:
                 repos.remove(repo)
                 break
 

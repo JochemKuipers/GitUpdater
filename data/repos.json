@@ -1,0 +1,86 @@
+{
+    "repos": [
+        {
+            "name": "GreemDev/Ryujinx",
+            "settings": [
+                {
+                    "type": "text",
+                    "label": "Name",
+                    "key": "name",
+                    "default": "GreemDev/Ryujinx"
+                },
+                {
+                    "type": "url",
+                    "label": "Repository URL",
+                    "key": "url",
+                    "default": "https://github.com/GreemDev/Ryujinx"
+                },
+                {
+                    "type": "path",
+                    "label": "Local Path",
+                    "key": "path",
+                    "default": ""
+                },
+                {
+                    "type": "text",
+                    "label": "Correct Package Name",
+                    "key": "correct_package_name",
+                    "default": "ryujinx-*-linux_x64.tar.gz"
+                },
+                {
+                    "type": "text",
+                    "label": "Version",
+                    "key": "version",
+                    "default": ""
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Update Automatically",
+                    "key": "auto_update",
+                    "default": true
+                }
+            ]
+        },
+        {
+            "name": "Hydr8gon/NooDS",
+            "settings": [
+                {
+                    "type": "text",
+                    "label": "Name",
+                    "key": "name",
+                    "default": "Hydr8gon/NooDS"
+                },
+                {
+                    "type": "url",
+                    "label": "Repository URL",
+                    "key": "url",
+                    "default": "https://github.com/Hydr8gon/NooDS"
+                },
+                {
+                    "type": "path",
+                    "label": "Local Path",
+                    "key": "path",
+                    "default": ""
+                },
+                {
+                    "type": "text",
+                    "label": "Correct Package Name",
+                    "key": "correct_package_name",
+                    "default": ""
+                },
+                {
+                    "type": "text",
+                    "label": "Version",
+                    "key": "version",
+                    "default": ""
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Update Automatically",
+                    "key": "auto_update",
+                    "default": false
+                }
+            ]
+        }
+    ]
+}
