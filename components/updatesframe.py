@@ -1,5 +1,4 @@
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
-from PyQt6.QtCore import Qt
 
 class UpdatesFrame(QFrame):
     def __init__(self, label: str, old_version: str, new_version: str, last_check: str, last_updated: str, tooltip: str, connection: callable):
