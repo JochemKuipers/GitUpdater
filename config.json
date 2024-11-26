@@ -35,48 +35,84 @@
             ]
         },
         {
-            "name": "NooDS",
+            "name": "GreemDev/Ryujinx",
             "settings": [
                 {
                     "type": "text",
                     "label": "Name",
                     "key": "name",
-                    "default": "NooDS"
+                    "default": "GreemDev/Ryujinx"
                 },
                 {
                     "type": "url",
                     "label": "Repository URL",
                     "key": "url",
-                    "default": "https://github.com/Hydr8gon/NooDS/releases/tag/release"
+                    "default": "https://github.com/GreemDev/Ryujinx"
                 },
                 {
                     "type": "path",
                     "label": "Local Path",
                     "key": "path",
-                    "default": "/home/jochem/Downloads"
+                    "default": ""
+                },
+                {
+                    "type": "text",
+                    "label": "Correct Package Name",
+                    "key": "correct_package_name",
+                    "default": "ryujinx-*-linux_x64.tar.gz"
+                },
+                {
+                    "type": "text",
+                    "label": "Version",
+                    "key": "version",
+                    "default": ""
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Update Automatically",
+                    "key": "auto_update",
+                    "default": false
                 }
             ]
         },
         {
-            "name": "AutoHotkey",
+            "name": "Hydr8gon/NooDS",
             "settings": [
                 {
                     "type": "text",
                     "label": "Name",
                     "key": "name",
-                    "default": "AutoHotkey"
+                    "default": "Hydr8gon/NooDS"
                 },
                 {
                     "type": "url",
                     "label": "Repository URL",
                     "key": "url",
-                    "default": "https://github.com/JochemKuipers/AutoHotkey_SplitScreenMoveButtomToSecondMonitor_FullScreen"
+                    "default": "https://github.com/Hydr8gon/NooDS"
                 },
                 {
                     "type": "path",
                     "label": "Local Path",
                     "key": "path",
-                    "default": "/home/jochem/Downloads"
+                    "default": ""
+                },
+                {
+                    "type": "text",
+                    "label": "Correct Package Name",
+                    "key": "correct_package_name",
+                    "default": ""
+                },
+                {
+                    "type": "text",
+                    "label": "Version",
+                    "key": "version",
+                    "default": ""
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Update Automatically",
+                    "key": "auto_update",
+                    "default": false
                 }
             ]
         }

@@ -3,3 +3,4 @@ assets/__pycache__
 .vscode
 components/__pycache__
 __pycache__
+.env

@@ -1,14 +1,16 @@
 {
     "repos": [
         {
-            "name": "NooDS",
-            "url": "https://github.com/Hydr8gon/NooDS/releases/tag/release",
-            "path": "/home/jochem/Downloads"
+            "name": "GreemDev/Ryujinx",
+            "url": "https://github.com/GreemDev/Ryujinx",
+            "version": "",
+            "correct_package_name": "ryujinx-*-linux_x64.tar.gz"
         },
         {
-            "name": "AutoHotkey",
-            "url": "https://github.com/JochemKuipers/AutoHotkey_SplitScreenMoveButtomToSecondMonitor_FullScreen",
-            "path": "/home/jochem/Downloads"
+            "name": "Hydr8gon/NooDS",
+            "url": "https://github.com/Hydr8gon/NooDS",
+            "version": "",
+            "correct_package_name": ""
         }
     ]
 }

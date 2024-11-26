@@ -4,8 +4,10 @@ from PyQt6 import QtWidgets, uic, QtCore, QtGui
 # noinspection PyUnresolvedReferences
 from assets import resources_rc
 from components.button import ClickableElidedLabel
-from components.settingframe import SettingsFrame
-
+from settings import SettingsWindow
+from components.updatesframe import UpdatesFrame
+from githubAuth import GitHub, clean_github_link
+from datetime import datetime
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -16,8 +18,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
         self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
+        self.updatesScrollAreaContents = self.findChild(QtWidgets.QWidget, "updatesScrollAreaContents")
+        self.updatesScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.updatesScrollAreaContents)
         try:
             update_repo_buttons(self)
+            update_updates(self)
         except FileNotFoundError:
             pass
 
@@ -48,71 +53,84 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.exec()
 
         if dialog.result() == QtWidgets.QDialog.DialogCode.Accepted:
-            github_link = dialog.textValue()
-            name = github_link.split('/')[4]
+            github_link = clean_github_link(dialog.textValue())
             try:
                 if not github_link.startswith("https://github.com/"):
                     raise ValueError("Invalid GitHub link")
 
-                try:
-                    with open('repos.json', 'r+', encoding='utf-8') as f:
-                        data = json.load(f)
-                        repos = data.get('repos', [])
-                        for repo in repos:
-                            if repo['name'] == name:
-                                if repo['url'] == github_link:
-                                    raise ValueError("Repository already exists")
-                                else:
-                                    raise ValueError("Repository with the same name already exists")
+                parts = github_link.split('/')                    
 
-                        data['repos'].append({"name": name, "url": github_link})
-                        f.seek(0)
-                        json.dump(data, f, indent=4)
-                        f.truncate()
-                        update_repo_buttons(self)
+                name = parts[3] + '/' + parts[4]
 
-                except json.JSONDecodeError:
-                    with open('repos.json', 'w', encoding='utf-8') as f:
-                        json.dump([github_link], f, indent=4)
+                with open('repos.json', 'r+', encoding='utf-8') as f:
+                    data = json.load(f)
+                    repos = data.get('repos', [])
+                    for repo in repos:
+                        if repo['name'] == name:
+                            if repo['url'] == github_link:
+                                raise ValueError("Repository already exists")
+                            else:
+                                raise ValueError("Repository with the same name already exists")
 
-                except FileNotFoundError:
-                    with open('repos.json', 'w', encoding='utf-8') as f:
-                        json.dump([github_link], f, indent=4)
-                except ValueError as e:
-                    if e.args[0] == 'Repository already exists':
-                        QtWidgets.QMessageBox.warning(self, "Error", str(e))
-                        return
-                    if e.args[0] == 'Repository with the same name already exists':
-                        overwrite_dialog = QtWidgets.QMessageBox()
-                        overwrite_dialog.setWindowTitle("Repository Already Exists")
-                        overwrite_dialog.setText("The repository already exists. Do you want to overwrite it?")
-                        overwrite_dialog.setStandardButtons(
-                            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-                        overwrite_dialog.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
-                        overwrite_dialog.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-                        if overwrite_dialog.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                            with open('repos.json', 'r+', encoding='utf-8') as f:
-                                data = json.load(f)
-                                repos = data.get('repos', [])
-                                for repo in repos:
-                                    if repo['url'] == github_link or repo['name'] == name:
-                                        repos.remove(repo)
-                                        break
+                    data['repos'].append({"name": name, "url": github_link})
+                    f.seek(0)
+                    json.dump(data, f, indent=4)
+                    f.truncate()
+                    update_repo_buttons(self)
 
-                                data['repos'].append({"name": name, "url": github_link})
-                                f.seek(0)
-                                json.dump(data, f, indent=4)
-                                f.truncate()
-                                update_repo_buttons(self)
-                        else:
-                            return
+            except json.JSONDecodeError:
+                with open('repos.json', 'w', encoding='utf-8') as f:
+                    json.dump({"repos": [{"name": name, "url": github_link}]}, f, indent=4)
+
+            except FileNotFoundError:
+                with open('repos.json', 'w', encoding='utf-8') as f:
+                    json.dump({"repos": [{"name": name, "url": github_link}]}, f, indent=4)
+
             except ValueError as e:
                 QtWidgets.QMessageBox.warning(self, "Error", str(e))
-                return
+                self.open_add_repo_dialog()
 
             QtWidgets.QMessageBox.information(self, "Repository Added", "The repository has been added.")
         dialog.deleteLater()
-
+        
+def update_updates(self):
+    if self.updatesScrollAreaContentsLayout.count() > 0:
+        clear_layout(self.updatesScrollAreaContentsLayout)
+    with open('repos.json', 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        git = GitHub()
+        repos = data.get('repos', [])
+        updates_frame = None
+        for repo in repos:
+            try:
+                latest_release = git.get_latest_release_url(repo['url'])
+                asset, correct_package_name = git.find_correct_asset_in_list(latest_release, self, repo.get('correct_package_name'))
+                if asset:
+                    version = git.get_asset_version(asset=asset, page=latest_release)
+                    old_version = repo['version']
+                    if old_version == version:
+                        continue
+                    if old_version == "":
+                        old_version = "N/A"
+                    updates_frame = UpdatesFrame(
+                        label=repo['name'],
+                        old_version=old_version,
+                        new_version=version,
+                        last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        last_updated=asset.updated_at.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+                        tooltip=asset.name,
+                        connection=lambda: print("clicked")
+                    )
+                    self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
+                    if correct_package_name:
+                        repo['correct_package_name'] = correct_package_name
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {repo['name']}: {e}")
+            self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
+        f.seek(0)
+        json.dump(data, f, indent=4)
+        f.truncate()
+        self.updatesScrollAreaContentsLayout.addStretch()
 
 def update_repo_buttons(self):
     if self.repoButtonsScrollAreaContentsLayout.count() > 0:
@@ -260,153 +278,6 @@ def clear_layout(layout):
             child.widget().deleteLater()
         elif child.layout():
             clear_layout(child.layout())
-
-class SettingsWindow(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        
-        self.setWindowTitle("Settings")
-        
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(400)
-
-        self.tab_widget = QtWidgets.QTabWidget()
-        self.tab_widget.setElideMode(QtCore.Qt.TextElideMode.ElideRight)
-        self.setCentralWidget(self.tab_widget)
-
-        self.setting_inputs = {}
-        self.load_settings()
-        
-        self.save_button = QtWidgets.QPushButton("Save")
-        self.save_button.clicked.connect(self.save_settings)
-        self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
-
-    def load_settings(self):
-        while self.tab_widget.count() > 0:
-            self.tab_widget.removeTab(0)
-        try:
-            with open('config.json', 'r') as f:
-                config = json.load(f)
-
-            with open('repos.json', 'r') as repo_file:
-                repos = json.load(repo_file)
-
-            for category in config['categories']:
-                if category['name'] == 'Repositories':
-                    repo_tab = QtWidgets.QWidget()
-                    repo_layout = QtWidgets.QVBoxLayout()
-                    self.repo_tab_widget = QtWidgets.QTabWidget()
-
-                    for repo in repos['repos']:
-                        repo_sub_tab = QtWidgets.QWidget()
-                        repo_sub_layout = QtWidgets.QVBoxLayout()
-
-                        for setting in category['settings']:
-                            repo_value = repo.get(setting['key'], setting['default'])
-                            setting_frame = SettingsFrame(
-                                label=setting['label'],
-                                setting_type=setting['type'],
-                                default_value=repo_value,
-                                options=setting.get('options')
-                            )
-                            repo_sub_layout.addWidget(setting_frame)
-
-                            if repo['name'] not in self.setting_inputs:
-                                self.setting_inputs[repo['name']] = {
-                                    'settings': category['settings'],
-                                    'widgets': {}
-                                }
-
-                            self.setting_inputs[repo['name']]['widgets'][setting['key']] = {
-                                'widget': setting_frame.get_widget()
-                            }
-
-                        repo_sub_layout.addStretch()
-                        repo_sub_tab.setLayout(repo_sub_layout)
-                        repo_sub_tab.setObjectName(repo['name'])
-                        self.repo_tab_widget.addTab(repo_sub_tab, repo['name'])
-
-                    repo_layout.addWidget(self.repo_tab_widget)
-                    repo_tab.setLayout(repo_layout)
-                    self.tab_widget.addTab(repo_tab, category['name'])
-                else:
-                    tab = QtWidgets.QWidget()
-                    layout = QtWidgets.QVBoxLayout()
-
-                    for setting in category['settings']:
-                        setting_frame = SettingsFrame(
-                            label=setting['label'],
-                            setting_type=setting['type'],
-                            default_value=setting['default'],
-                            options=setting.get('options')
-                        )
-                        layout.addWidget(setting_frame)
-
-                        if category['name'] not in self.setting_inputs:
-                            self.setting_inputs[category['name']] = {
-                                'settings': category['settings'],
-                                'widgets': {}
-                            }
-
-                        self.setting_inputs[category['name']]['widgets'][setting['key']] = {
-                            'widget': setting_frame.get_widget()
-                        }
-
-                    layout.addStretch()
-                    tab.setLayout(layout)
-                    self.tab_widget.addTab(tab, category['name'])
-                    
-
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-
-    def save_settings(self):
-        try:
-            settings = {"categories": []}
-
-            for category_name, category_data in self.setting_inputs.items():
-                category = {
-                    "name": category_name,
-                    "settings": []
-                }
-
-                for setting in category_data['settings']:
-                    widget = category_data['widgets'].get(setting['key'], {}).get('widget')
-                    if widget:
-                        setting_type = setting['type']
-                        if isinstance(widget, QtWidgets.QCheckBox):
-                            value = widget.isChecked()
-                        elif isinstance(widget, QtWidgets.QComboBox):
-                            value = widget.currentText()
-                        else:
-                            value = widget.text()
-                        
-                        if setting_type == 'select':
-                            new_setting = {
-                            "type": setting_type,
-                            "label": setting['label'],
-                            "key": setting['key'],
-                            "options": setting.get('options'),
-                            "default": value
-                        }
-                        else:
-                            new_setting = {
-                                "type": setting_type,
-                                "label": setting['label'],
-                                "key": setting['key'],
-                                "default": value
-                            }
-                        category["settings"].append(new_setting)
-
-                settings["categories"].append(category)
-
-            with open('config.json', 'w', encoding='utf-8') as f:
-                json.dump(settings, f, indent=4)
-
-            QtWidgets.QMessageBox.information(self, "Settings Saved", "The settings have been saved successfully.")
-
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Error saving settings: {e}")
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
