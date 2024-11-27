@@ -72,7 +72,7 @@ class MainWindow(QtWidgets.QMainWindow):
                             else:
                                 raise ValueError("Repository with the same name already exists")
 
-                    data['repos'].append({"name": name, "url": github_link})
+                    data['repos'].append({"name": name, "url": github_link, "path": "", "correct_package_name": "", "version": "", "auto_update": False})
                     f.seek(0)
                     json.dump(data, f, indent=4)
                     f.truncate()
