@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QPushButton, QSizePolicy, QWidget
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontMetrics
 
 class ClickableElidedLabel(QPushButton):

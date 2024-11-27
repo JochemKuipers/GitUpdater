@@ -9,6 +9,7 @@ from assets import resources_rc
 from components.button import ClickableElidedLabel
 from components.addrepoframe import AddRepoDialog
 from components.updatesframe import UpdatesFrame
+from components.trayicon import SystemTrayIcon
 
 from src.githubAuth import GitHub, clean_github_link
 from src.settings import SettingsWindow
@@ -22,16 +23,17 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.setWindowTitle("GitUpdater")
         
+        
         try:
             with open('data/config.json', 'r') as f:
-                config = json.load(f)
+                self.config = json.load(f)
         except FileNotFoundError:    
             template = open('src/config_template.json', 'r')
             with open('data/config.json', 'w') as f:
                 f.write(template.read())
                 f.close()
             with open('data/config.json', 'r') as f:
-                config = json.load(f)        
+                self.config = json.load(f)        
             
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
@@ -47,16 +49,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.settingswindow = None
         
+        self.tray_icon = SystemTrayIcon(self)
+        self.tray_icon.show()
+        
         try:
             update_repo_buttons(self)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error loading repositories: {e}")
         
-        if config.get('auto_update', True):
+        if self.get_setting('check_updates', True):
             try:
                 update_updates(self)
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Error", f"Error updating repositories: {e}")
+ 
+                
+
 
         self.show()
 
@@ -106,7 +114,46 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.information(self, "Repository Added", "The repository has been added.")
         else:
             dialog.deleteLater()
+            
+    def closeEvent(self, event):
+        if self.get_setting('tray_on_close', True):
+            self.minimizeEvent(event)
+        else:
+            result = QtWidgets.QMessageBox.question(
+                self,
+                "Confirm Exit", 
+                "Are you sure you want to exit?",
+                QtWidgets.QMessageBox.StandardButton.Yes | 
+                QtWidgets.QMessageBox.StandardButton.No,
+                QtWidgets.QMessageBox.StandardButton.No
+            )
+            
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
+                QtWidgets.QApplication.quit()
+            else:
+                event.ignore()
+            
+    def minimizeEvent(self, event):
+        if self.tray_icon.isVisible():
+            if self.isVisible():
+                QtWidgets.QMessageBox.information(
+                    self, 
+                    "GitUpdater",
+                    "The application will keep running in the system tray. "
+                    "To restore, click the tray icon."
+                )
+            self.hide()
+            event.ignore()
+
         
+    def get_setting(self, setting_name, value=None):
+        """Helper method to get settings from config.json"""
+        for category in self.config.get('categories', []):
+            if 'General' in category:
+                settings = category['General'][0]['settings'][0]
+                if setting_name in settings:
+                    return settings[setting_name][0].get('value', value)
+        return None
         
 def update_updates(self):
     if self.updatesScrollAreaContentsLayout.count() > 0:
