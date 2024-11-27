@@ -66,8 +66,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     data = json.load(f)
                     repos = data.get('repos', [])
                     for repo in repos:
-                        if repo['settings']['name'] == name:
-                            if repo['settings']['url'] == github_link:
+                        if repo['name'] == name:
+                            if repo['url'] == github_link:
                                 raise ValueError("Repository already exists")
                             else:
                                 raise ValueError("Repository with the same name already exists")
@@ -107,13 +107,13 @@ def update_updates(self):
                 asset, correct_package_name = git.find_correct_asset_in_list(latest_release, self, repo.get('correct_package_name'))
                 if asset:
                     version = git.get_asset_version(asset=asset, page=latest_release)
-                    old_version = repo['settings']['version']
+                    old_version = repo['version']
                     if old_version == version:
                         continue
                     if old_version == "":
                         old_version = "N/A"
                     updates_frame = UpdatesFrame(
-                        label=repo['settings']['name'],
+                        label=repo['name'],
                         old_version=old_version,
                         new_version=version,
                         last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -123,9 +123,9 @@ def update_updates(self):
                     )
                     self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
                     if correct_package_name:
-                        repo['settings']['correct_package_name'] = correct_package_name
+                        repo['correct_package_name'] = correct_package_name
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {repo['settings']['name']}: {e}")
+                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {repo['name']}: {e}")
             self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
         f.seek(0)
         json.dump(data, f, indent=4)
@@ -139,8 +139,8 @@ def update_repo_buttons(self):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            button = ClickableElidedLabel(repo['settings']['name'], repo['settings']['url'], connection=lambda: print("clicked"))
-            button.setObjectName(repo['settings']['name'])
+            button = ClickableElidedLabel(repo['name'], repo['url'], connection=lambda: print("clicked"))
+            button.setObjectName(repo['name'])
             button.clicked.connect(lambda: print("clicked"))
             button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             button.customContextMenuRequested.connect(lambda: context_menu(self, QtGui.QCursor.pos()))
@@ -212,8 +212,8 @@ def change_local_path(self, name, new_path):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['settings']['name'] == name:
-                repo['settings']['local_path'] = new_path
+            if repo['name'] == name:
+                repo['path'] = new_path
                 break
 
         data['repos'] = repos
@@ -228,8 +228,8 @@ def change_repo_name(self, old_name, new_name):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['settings']['name'] == old_name:
-                repo['settings']['name'] = new_name
+            if repo['name'] == old_name:
+                repo['name'] = new_name
                 break
 
         data['repos'] = repos
@@ -244,8 +244,8 @@ def change_repo_url(self, name, new_url):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['settings']['name'] == name:
-                repo['settings']['url'] = new_url
+            if repo['name'] == name:
+                repo['url'] = new_url
                 break
 
         data['repos'] = repos
@@ -260,7 +260,7 @@ def delete_repo(self, name):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            if repo['settings']['name'] == name:
+            if repo['name'] == name:
                 repos.remove(repo)
                 break
 

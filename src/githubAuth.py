@@ -72,7 +72,7 @@ class GitHub():
             correct_package_name_pattern = re.escape(correct_package_name).replace(r'\*', r'\d+(\.\d+)*')
             for asset in os_filtered_assets:
                 if re.match(correct_package_name_pattern, asset.name):
-                    return asset, correct_package_name
+                    return asset, None
         
         if len(os_filtered_assets) == 1:
             return os_filtered_assets[0], None

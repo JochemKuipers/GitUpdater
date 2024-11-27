@@ -6,8 +6,10 @@ from components.settingframe import SettingsFrame
 class SettingsWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setting_inputs = {}  # This should be initialized with your settings structure
+        self.setWindowTitle("Settings")
+        self.setting_inputs = {}
         self.tab_widget = QtWidgets.QTabWidget()
+        self.setCentralWidget(self.tab_widget)
         self.save_button = QtWidgets.QPushButton("Save")
         self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
 
@@ -26,171 +28,114 @@ class SettingsWindow(QtWidgets.QMainWindow):
             with open('data/config.json', 'r') as f:
                 config = json.load(f)
 
-            with open('data/repos.json', 'r') as repo_file:
-                repos = json.load(repo_file)
-
             for category in config['categories']:
-                if category['name'] == 'Repositories' and repos['repos'] != []:
-                    repo_tab = QtWidgets.QWidget()
-                    repo_layout = QtWidgets.QVBoxLayout()
-                    self.repo_tab_widget = QtWidgets.QTabWidget()
-
-                    for repo in repos['repos']:
-                        repo_sub_tab = QtWidgets.QWidget()
-                        repo_sub_layout = QtWidgets.QVBoxLayout()
-
-                        # Convert settings list to dictionary
-                        repo_settings_dict = {setting['key']: setting for setting in repo['settings']}
-
-                        for setting in category['settings']:
-                            repo_value = repo_settings_dict.get(setting['key'], {}).get('default', setting['default'])
-                            setting_frame = SettingsFrame(
-                                label=setting['label'],
-                                setting_type=setting['type'],
-                                default_value=repo_value,
-                                options=setting.get('options')
-                            )
-                            repo_sub_layout.addWidget(setting_frame)
-
-                            if repo['name'] not in self.setting_inputs:
-                                self.setting_inputs[repo['name']] = {
-                                    'settings': category['settings'],
-                                    'widgets': {}
-                                }
-
-                            self.setting_inputs[repo['name']]['widgets'][setting['key']] = {
-                                'widget': setting_frame.get_widget()
-                            }
-
-                        repo_sub_tab.setLayout(repo_sub_layout)
-                        self.repo_tab_widget.addTab(repo_sub_tab, repo['name'])
-
-                    repo_layout.addWidget(self.repo_tab_widget)
-                    repo_tab.setLayout(repo_layout)
-                    self.tab_widget.addTab(repo_tab, "Repositories")
-
+                if category['name'] == 'Repositories':
+                    self._load_repo_category(category)
                 else:
-                    general_tab = QtWidgets.QWidget()
-                    general_layout = QtWidgets.QVBoxLayout()
+                    category_tab = QtWidgets.QWidget()
+                    category_layout = QtWidgets.QVBoxLayout()
+                    self.setting_inputs[category['name']] = {
+                        'widgets': {},
+                        'settings': {}
+                    }
 
                     for setting in category['settings']:
                         setting_frame = SettingsFrame(
                             label=setting['label'],
                             setting_type=setting['type'],
-                            default_value=setting['default'],
-                            options=setting.get('options')
+                            default_value=setting['value']
                         )
-                        general_layout.addWidget(setting_frame)
+                        category_layout.addWidget(setting_frame)
+                        
+                        self.setting_inputs[category['name']]['settings'][setting['label']] = setting['value']
+                        self.setting_inputs[category['name']]['widgets'][setting['label']] = setting_frame.get_widget()
 
-                        if category['name'] not in self.setting_inputs:
-                            self.setting_inputs[category['name']] = {
-                                'settings': category['settings'],
-                                'widgets': {}
-                            }
-
-                        self.setting_inputs[category['name']]['widgets'][setting['key']] = {
-                            'widget': setting_frame.get_widget()
-                        }
-
-                    general_tab.setLayout(general_layout)
-                    self.tab_widget.addTab(general_tab, category['name'])
+                    category_tab.setLayout(category_layout)
+                    self.tab_widget.addTab(category_tab, category['name'])
 
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error loading settings: {e}")
-        except FileNotFoundError:
-            with open('data/config.json', 'w') as f:
-                json.dump({"categories": []}, f)
+
     def save_settings(self):
         try:
-            # Save general settings to config.json
-            general_settings = {"categories": []}
-
-            for category_name, category_data in self.setting_inputs.items():
-                if category_name == "Repositories":
-                    continue  # Skip repository settings for now
-
-                category = {
-                    "name": category_name,
-                    "settings": []
-                }
-
-                for setting in category_data['settings']:
-                    widget = category_data['widgets'].get(setting['key'], {}).get('widget')
-                    if widget:
-                        setting_type = setting['type']
-                        if isinstance(widget, QtWidgets.QCheckBox):
-                            value = widget.isChecked()
-                        elif isinstance(widget, QtWidgets.QComboBox):
-                            value = widget.currentText()
-                        else:
-                            value = widget.text()
-
-                        if setting_type == 'select':
-                            new_setting = {
-                                "type": setting_type,
-                                "label": setting['label'],
-                                "key": setting['key'],
-                                "options": setting.get('options'),
-                                "default": value
-                            }
-                        else:
-                            new_setting = {
-                                "type": setting_type,
-                                "label": setting['label'],
-                                "key": setting['key'],
-                                "default": value
-                            }
-                        category["settings"].append(new_setting)
-
-                general_settings["categories"].append(category)
-
-            with open('data/config.json', 'w', encoding='utf-8') as f:
-                json.dump(general_settings, f, indent=4)
-
-            # Save repository settings to repos.json
-            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+            # Save repository settings
+            with open('data/repos.json', 'r+') as f:
                 data = json.load(f)
-                repos = data.get('repos', [])
-
-                for repo in repos:
-                    repo_name = repo['name']
-                    if repo_name in self.setting_inputs.get("Repositories", {}):
-                        repo_settings = self.setting_inputs["Repositories"][repo_name]
-                        repo['settings'] = []
-
-                        for setting in repo_settings['settings']:
-                            widget = repo_settings['widgets'].get(setting['key'], {}).get('widget')
-                            if widget:
-                                setting_type = setting['type']
-                                if isinstance(widget, QtWidgets.QCheckBox):
-                                    value = widget.isChecked()
-                                elif isinstance(widget, QtWidgets.QComboBox):
-                                    value = widget.currentText()
-                                else:
-                                    value = widget.text()
-
-                                if setting_type == 'select':
-                                    new_setting = {
-                                        "type": setting_type,
-                                        "label": setting['label'],
-                                        "key": setting['key'],
-                                        "options": setting.get('options'),
-                                        "default": value
-                                    }
-                                else:
-                                    new_setting = {
-                                        "type": setting_type,
-                                        "label": setting['label'],
-                                        "key": setting['key'],
-                                        "default": value
-                                    }
-                                repo['settings'].append(new_setting)
+                
+                for i, repo in enumerate(data['repos']):
+                    if repo['name'] in self.setting_inputs:
+                        repo_widgets = self.setting_inputs[repo['name']]['widgets']
+                        
+                        # Update each setting from its widget
+                        for key, widget in repo_widgets.items():
+                            if isinstance(widget, QtWidgets.QCheckBox):
+                                data['repos'][i][key] = widget.isChecked()
+                            else:
+                                data['repos'][i][key] = widget.text()
 
                 f.seek(0)
                 json.dump(data, f, indent=4)
                 f.truncate()
 
-            QtWidgets.QMessageBox.information(self, "Settings Saved", "The settings have been saved successfully.")
+            # Save general settings
+            general_settings = {"categories": []}
+            for category_name, category_data in self.setting_inputs.items():
+                if not '/' in category_name:  # Skip repository settings
+                    category = {
+                        "name": category_name,
+                        "settings": category_data['settings']
+                    }
+                    general_settings["categories"].append(category)
+
+            with open('data/config.json', 'w') as f:
+                json.dump(general_settings, f, indent=4)
+
+            QtWidgets.QMessageBox.information(self, "Success", "Settings saved successfully")
 
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error saving settings: {e}")
+
+    def _load_repo_category(self, category):
+        with open('data/repos.json', 'r') as f:
+                repos_data = json.load(f)
+        if repos_data['repos']:
+            repo_tab = QtWidgets.QWidget()
+            repo_layout = QtWidgets.QVBoxLayout()
+            self.repo_tab_widget = QtWidgets.QTabWidget()
+
+            for repo in repos_data['repos']:
+                repo_sub_tab = QtWidgets.QWidget()
+                repo_sub_layout = QtWidgets.QVBoxLayout()
+
+                # Initialize repository settings structure
+                self.setting_inputs[repo['name']] = {
+                    'widgets': {},
+                    'settings': {}
+                }
+
+                # Create setting frames for each setting
+                settings_map = {
+                    'path': ('Path', 'path'),
+                    'url': ('URL', 'url'),
+                    'correct_package_name': ('Correct Package Name', 'text'),
+                    'version': ('Version', 'text'),
+                    'auto_update': ('Auto Update', 'checkbox')
+                }
+
+                for key, (label, setting_type) in settings_map.items():
+                    setting_frame = SettingsFrame(
+                        label=label,
+                        setting_type=setting_type,
+                        default_value=repo.get(key, '')
+                    )
+                    repo_sub_layout.addWidget(setting_frame)
+                    
+                    self.setting_inputs[repo['name']]['settings'][key] = repo.get(key, '')
+                    self.setting_inputs[repo['name']]['widgets'][key] = setting_frame.get_widget()
+
+                repo_sub_tab.setLayout(repo_sub_layout)
+                self.repo_tab_widget.addTab(repo_sub_tab, repo['name'].split('/')[-1])
+
+            repo_layout.addWidget(self.repo_tab_widget)
+            repo_tab.setLayout(repo_layout)
+            self.tab_widget.addTab(repo_tab, "Repositories")

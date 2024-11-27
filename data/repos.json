@@ -2,85 +2,19 @@
     "repos": [
         {
             "name": "GreemDev/Ryujinx",
-            "settings": [
-                {
-                    "type": "text",
-                    "label": "Name",
-                    "key": "name",
-                    "default": "GreemDev/Ryujinx"
-                },
-                {
-                    "type": "url",
-                    "label": "Repository URL",
-                    "key": "url",
-                    "default": "https://github.com/GreemDev/Ryujinx"
-                },
-                {
-                    "type": "path",
-                    "label": "Local Path",
-                    "key": "path",
-                    "default": ""
-                },
-                {
-                    "type": "text",
-                    "label": "Correct Package Name",
-                    "key": "correct_package_name",
-                    "default": "ryujinx-*-linux_x64.tar.gz"
-                },
-                {
-                    "type": "text",
-                    "label": "Version",
-                    "key": "version",
-                    "default": ""
-                },
-                {
-                    "type": "checkbox",
-                    "label": "Update Automatically",
-                    "key": "auto_update",
-                    "default": true
-                }
-            ]
+            "url": "https://github.com/GreemDev/Ryujinx",
+            "path": "",
+            "correct_package_name": "ryujinx-1.2.76-linux_x64.tar.gz",
+            "version": "",
+            "auto_update": false
         },
         {
             "name": "Hydr8gon/NooDS",
-            "settings": [
-                {
-                    "type": "text",
-                    "label": "Name",
-                    "key": "name",
-                    "default": "Hydr8gon/NooDS"
-                },
-                {
-                    "type": "url",
-                    "label": "Repository URL",
-                    "key": "url",
-                    "default": "https://github.com/Hydr8gon/NooDS"
-                },
-                {
-                    "type": "path",
-                    "label": "Local Path",
-                    "key": "path",
-                    "default": ""
-                },
-                {
-                    "type": "text",
-                    "label": "Correct Package Name",
-                    "key": "correct_package_name",
-                    "default": ""
-                },
-                {
-                    "type": "text",
-                    "label": "Version",
-                    "key": "version",
-                    "default": ""
-                },
-                {
-                    "type": "checkbox",
-                    "label": "Update Automatically",
-                    "key": "auto_update",
-                    "default": false
-                }
-            ]
+            "url": "https://github.com/Hydr8gon/NooDS",
+            "path": "",
+            "correct_package_name": "",
+            "version": "",
+            "auto_update": false
         }
     ]
 }

@@ -12,25 +12,25 @@
                         "dark",
                         "light"
                     ],
-                    "default": "system default"
+                    "value": "system default"
                 },
                 {
                     "type": "checkbox",
                     "label": "Start on boot",
                     "key": "start_on_boot",
-                    "default": false
+                    "value": false
                 },
                 {
                     "type": "checkbox",
                     "label": "Start minimized",
                     "key": "start_minimized",
-                    "default": false
+                    "value": false
                 },
                 {
                     "type": "checkbox",
                     "label": "Check for updates on startup",
                     "key": "check_for_updates",
-                    "default": true
+                    "value": true
                 }
             ]
         },
@@ -41,37 +41,37 @@
                     "type": "text",
                     "label": "Name",
                     "key": "name",
-                    "default": ""
+                    "value": ""
                 },
                 {
                     "type": "url",
                     "label": "Repository URL",
                     "key": "url",
-                    "default": ""
+                    "value": ""
                 },
                 {
                     "type": "path",
                     "label": "Local Path",
                     "key": "path",
-                    "default": ""
+                    "value": ""
                 },
                 {
                     "type": "text",
                     "label": "Correct Package Name",
                     "key": "correct_package_name",
-                    "default": ""
+                    "value": ""
                 },
                 {
                     "type": "text",
                     "label": "Version",
                     "key": "version",
-                    "default": ""
+                    "value": ""
                 },
                 {
                     "type": "checkbox",
                     "label": "Update Automatically",
                     "key": "auto_update",
-                    "default": false
+                    "value": false
                 }
             ]
         }
