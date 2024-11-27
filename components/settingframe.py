@@ -41,7 +41,7 @@ class SettingsFrame(QFrame):
             self.text.setText(str(default_value))
             self.text.setCursorPosition(0)
             self.filepicker = QFileDialog()
-            self.filepicker.setFileMode(QFileDialog.FileMode.ExistingFile)
+            self.filepicker.setFileMode(QFileDialog.FileMode.Directory)
             self.filepicker.setOption(QFileDialog.Option.ReadOnly, True)
             self.filepicker.fileSelected.connect(lambda path: self.text.setText(path))
             self.input = self.text

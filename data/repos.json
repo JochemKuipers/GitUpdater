@@ -3,7 +3,7 @@
         {
             "name": "GreemDev/Ryujinx",
             "url": "https://github.com/GreemDev/Ryujinx",
-            "path": "",
+            "path": "/home/jochem/Downloads",
             "correct_package_name": "ryujinx-1.2.76-linux_x64.tar.gz",
             "version": "",
             "auto_update": false

@@ -1,77 +1,121 @@
 {
     "categories": [
         {
-            "name": "General",
-            "settings": [
+            "General": [
                 {
-                    "type": "select",
-                    "label": "Theme",
-                    "key": "theme",
-                    "options": [
-                        "system default",
-                        "dark",
-                        "light"
-                    ],
-                    "value": "system default"
-                },
-                {
-                    "type": "checkbox",
-                    "label": "Start on boot",
-                    "key": "start_on_boot",
-                    "value": false
-                },
-                {
-                    "type": "checkbox",
-                    "label": "Start minimized",
-                    "key": "start_minimized",
-                    "value": false
-                },
-                {
-                    "type": "checkbox",
-                    "label": "Check for updates on startup",
-                    "key": "check_for_updates",
-                    "value": true
+                    "settings": [
+                        {
+                            "theme": [
+                                {
+                                    "type": "select",
+                                    "label": "Theme",
+                                    "key": "theme",
+                                    "value": "system default",
+                                    "options": [
+                                        {
+                                            "label": "System Default",
+                                            "value": "system default"
+                                        },
+                                        {
+                                            "label": "Light",
+                                            "value": "light"
+                                        },
+                                        {
+                                            "label": "Dark",
+                                            "value": "dark"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "start_on_boot": [
+                                {
+                                    "type": "checkbox",
+                                    "label": "Start on Boot",
+                                    "key": "start_on_boot",
+                                    "default": true
+                                }
+                            ],
+                            "start_minimized": [
+                                {
+                                    "type": "checkbox",
+                                    "label": "Start Minimized",
+                                    "key": "start_minimized",
+                                    "default": false
+                                }
+                            ],
+                            "check_updates": [
+                                {
+                                    "type": "checkbox",
+                                    "label": "Check for Updates",
+                                    "key": "check_updates",
+                                    "default": true
+                                }
+                            ]
+                        }
+                    ]
                 }
             ]
         },
         {
-            "name": "Repositories",
-            "settings": [
+            "Repositories": [
                 {
-                    "type": "text",
-                    "label": "Name",
-                    "key": "name",
-                    "value": ""
-                },
-                {
-                    "type": "url",
-                    "label": "Repository URL",
-                    "key": "url",
-                    "value": ""
-                },
-                {
-                    "type": "path",
-                    "label": "Local Path",
-                    "key": "path",
-                    "value": ""
-                },
-                {
-                    "type": "text",
-                    "label": "Correct Package Name",
-                    "key": "correct_package_name",
-                    "value": ""
-                },
-                {
-                    "type": "text",
-                    "label": "Version",
-                    "key": "version",
-                    "value": ""
-                },
-                {
-                    "type": "checkbox",
-                    "label": "Update Automatically",
-                    "key": "auto_update",
-                    "value": false
+                    "settings": [
+                        {
+                            "name": [
+                                {
+                                    "type": "text",
+                                    "label": "Name",
+                                    "key": "name",
+                                    "value": "",
+                                    "placeholder": "Name"
+                                }
+                            ],
+                            "url": [
+                                {
+                                    "type": "text",
+                                    "label": "URL",
+                                    "key": "url",
+                                    "value": "",
+                                    "placeholder": "URL"
+                                }
+                            ],
+                            "path": [
+                                {
+                                    "type": "text",
+                                    "label": "Path",
+                                    "key": "path",
+                                    "value": "",
+                                    "placeholder": "Path"
+                                }
+                            ],
+                            "correct_package_name": [
+                                {
+                                    "type": "text",
+                                    "label": "Correct Package Name",
+                                    "key": "correct_package_name",
+                                    "value": "",
+                                    "placeholder": "Correct Package Name"
+                                }
+                            ],
+                            "version": [
+                                {
+                                    "type": "text",
+                                    "label": "Version",
+                                    "key": "version",
+                                    "value": "",
+                                    "placeholder": "Version"
+                                }
+                            ],
+                            "auto_update": [
+                                {
+                                    "type": "checkbox",
+                                    "label": "Auto Update",
+                                    "key": "auto_update",
+                                    "default": false
+                                }
+                            ]
+                        }
+                    ]
                 }
             ]
         }
