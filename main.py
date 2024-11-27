@@ -1,13 +1,19 @@
 import json
 import sys
 from PyQt6 import QtWidgets, uic, QtCore, QtGui
+from datetime import datetime
+
 # noinspection PyUnresolvedReferences
 from assets import resources_rc
+
 from components.button import ClickableElidedLabel
-from src.settings import SettingsWindow
+from components.addrepoframe import AddRepoDialog
 from components.updatesframe import UpdatesFrame
+
 from src.githubAuth import GitHub, clean_github_link
-from datetime import datetime
+from src.settings import SettingsWindow
+import src.updater
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -15,16 +21,23 @@ class MainWindow(QtWidgets.QMainWindow):
         uic.loadUi("components/mainwindow.ui", self)  # type: ignore
         
         self.setWindowTitle("GitUpdater")
+        
+        try:
+            with open('data/config.json', 'r') as f:
+                config = json.load(f)
+        except FileNotFoundError:    
+            template = open('src/config_template.json', 'r')
+            with open('data/config.json', 'w') as f:
+                f.write(template.read())
+                f.close()
+            with open('data/config.json', 'r') as f:
+                config = json.load(f)        
+            
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
         self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
         self.updatesScrollAreaContents = self.findChild(QtWidgets.QWidget, "updatesScrollAreaContents")
         self.updatesScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.updatesScrollAreaContents)
-        try:
-            update_repo_buttons(self)
-            update_updates(self)
-        except FileNotFoundError:
-            pass
 
         self.addRepoButton = self.findChild(QtWidgets.QPushButton, "addRepoButton")
         self.addRepoButton.clicked.connect(self.open_add_repo_dialog)
@@ -33,6 +46,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settingsButton.clicked.connect(self.open_settings)
 
         self.settingswindow = None
+        
+        try:
+            update_repo_buttons(self)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error loading repositories: {e}")
+        
+        if config.get('auto_update', True):
+            try:
+                update_updates(self)
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating repositories: {e}")
 
         self.show()
 
@@ -43,17 +67,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settingswindow.show()
 
     def open_add_repo_dialog(self):
-        dialog = QtWidgets.QInputDialog()
-        dialog.setLabelText("Enter the GitHub repository link:")
-        dialog.setWindowTitle("Add Repository")
-        dialog.setTextValue(" ")
-        dialog.setOkButtonText("Add")
-        dialog.setCancelButtonText("Cancel")
-        dialog.setWindowIcon(QtGui.QIcon(":/assets/giticon.svg"))
-        dialog.exec()
-
-        if dialog.result() == QtWidgets.QDialog.DialogCode.Accepted:
-            github_link = clean_github_link(dialog.textValue())
+        dialog = AddRepoDialog(self)
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            data = dialog.get_data()
+            github_link = clean_github_link(data['url'])
             try:
                 if not github_link.startswith("https://github.com/"):
                     raise ValueError("Invalid GitHub link")
@@ -72,26 +89,24 @@ class MainWindow(QtWidgets.QMainWindow):
                             else:
                                 raise ValueError("Repository with the same name already exists")
 
-                    data['repos'].append({"name": name, "url": github_link, "path": "", "correct_package_name": "", "version": "", "auto_update": False})
+                    data['repos'].append({"name": name, "url": github_link, "path": data['path'], "correct_package_name": "", "version": "", "auto_update": data['auto_update']})
                     f.seek(0)
                     json.dump(data, f, indent=4)
                     f.truncate()
                     update_repo_buttons(self)
 
-            except json.JSONDecodeError:
-                with open('data/repos.json', 'w', encoding='utf-8') as f:
-                    json.dump({"repos": [{"name": name, "url": github_link}]}, f, indent=4)
-
             except FileNotFoundError:
                 with open('data/repos.json', 'w', encoding='utf-8') as f:
-                    json.dump({"repos": [{"name": name, "url": github_link}]}, f, indent=4)
+                    json.dump({"repos": [{"name": name, "url": github_link, "path": data['path'], "correct_package_name": "", "version": "", "auto_update": data['auto_update']}]}, f, indent=4)
 
             except ValueError as e:
                 QtWidgets.QMessageBox.warning(self, "Error", str(e))
                 self.open_add_repo_dialog()
 
             QtWidgets.QMessageBox.information(self, "Repository Added", "The repository has been added.")
-        dialog.deleteLater()
+        else:
+            dialog.deleteLater()
+        
         
 def update_updates(self):
     if self.updatesScrollAreaContentsLayout.count() > 0:
@@ -112,6 +127,9 @@ def update_updates(self):
                         continue
                     if old_version == "":
                         old_version = "N/A"
+                        
+                    def make_connection(self, name, url, path, version):
+                        return lambda: update_repo(self, name, url, path, version)
                     updates_frame = UpdatesFrame(
                         label=repo['name'],
                         old_version=old_version,
@@ -119,7 +137,7 @@ def update_updates(self):
                         last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         last_updated=asset.updated_at.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
                         tooltip=asset.name,
-                        connection=lambda: print("clicked")
+                        connection=make_connection(self, repo['name'], asset.browser_download_url, repo['path'], version)
                     )
                     self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
                     if correct_package_name:
@@ -131,6 +149,24 @@ def update_updates(self):
         json.dump(data, f, indent=4)
         f.truncate()
         self.updatesScrollAreaContentsLayout.addStretch()
+        
+def update_repo(self, name, url, path, version):
+    try:
+        src.updater.update(url, path)
+    except Exception as e:
+        QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {name}: {e}")
+        return
+    
+    with open('data/repos.json', 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        repo = [repo for repo in data.get('repos', []) if repo['name'] == name][0]
+        repo['version'] = version
+        f.seek(0)
+        json.dump(data, f, indent=4)
+        f.truncate()
+        update_repo_buttons(self)
+    
+    QtWidgets.QMessageBox.information(self, "Repository Updated", "The repository has been updated.")
 
 def update_repo_buttons(self):
     if self.repoButtonsScrollAreaContentsLayout.count() > 0:

@@ -63,6 +63,9 @@ class SettingsFrame(QFrame):
             self.main_layout.addWidget(self.input, stretch=3)
             
 
+        
+            
+
     def getValue(self):
         if isinstance(self.input, QCheckBox):
             return self.input.isChecked()
