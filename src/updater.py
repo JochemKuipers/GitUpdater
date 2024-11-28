@@ -15,7 +15,7 @@ def download_file(url, path):
         
         # Skip if file already exists
         if os.path.exists(full_path):
-            return full_path
+            os.remove(full_path)
             
         # Download file
         response = requests.get(url, stream=True)
@@ -77,6 +77,8 @@ def update(url, path):
             unarchive_file(file_path, path)
         else:
             raise Exception("Unsupported file type")
+        
+        os.remove(file_path)
             
     except Exception as e:
         raise Exception(f"Update failed: {str(e)}") from e

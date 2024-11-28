@@ -449,47 +449,13 @@
               <number>10</number>
              </property>
              <item>
-              <widget class="QLabel" name="updatedLabel">
-               <property name="font">
-                <font>
-                 <family>Roboto</family>
-                 <pointsize>28</pointsize>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="styleSheet">
-                <string notr="true">background-color: rgb(57, 62, 70);
-                                                                    border-radius: 5px;
-                                                                </string>
-               </property>
-               <property name="text">
-                <string>Updates</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignmentFlag::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="Line" name="seperatorUpdates">
-               <property name="maximumSize">
+              <widget class="QFrame" name="updatesLabelFrame">
+               <property name="minimumSize">
                 <size>
-                 <width>16777215</width>
-                 <height>1</height>
+                 <width>0</width>
+                 <height>0</height>
                 </size>
                </property>
-               <property name="styleSheet">
-                <string notr="true">background-color: rgb(217, 217,
-                                                                    217);
-                                                                </string>
-               </property>
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QScrollArea" name="updatesScrollArea">
                <property name="frameShape">
                 <enum>QFrame::Shape::NoFrame</enum>
                </property>
@@ -499,25 +465,120 @@
                <property name="lineWidth">
                 <number>0</number>
                </property>
-               <property name="horizontalScrollBarPolicy">
-                <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
-               </property>
-               <property name="widgetResizable">
-                <bool>true</bool>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignmentFlag::AlignCenter</set>
-               </property>
-               <widget class="QWidget" name="updatesScrollAreaContents">
-                <property name="geometry">
-                 <rect>
-                  <x>0</x>
-                  <y>0</y>
-                  <width>563</width>
-                  <height>410</height>
-                 </rect>
+               <layout class="QVBoxLayout" name="verticalLayout_5">
+                <property name="spacing">
+                 <number>5</number>
                 </property>
-               </widget>
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QLabel" name="updatedLabel">
+                  <property name="font">
+                   <font>
+                    <family>Roboto</family>
+                    <pointsize>28</pointsize>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">background-color: rgb(57, 62, 70);
+                                                                    border-radius: 5px;
+                                                                </string>
+                  </property>
+                  <property name="text">
+                   <string>Updates</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignmentFlag::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="Line" name="seperatorUpdates">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">background-color: rgb(217, 217,
+                                                                    217);
+                                                                </string>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QScrollArea" name="updatesScrollArea">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::NoFrame</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Plain</enum>
+                  </property>
+                  <property name="lineWidth">
+                   <number>0</number>
+                  </property>
+                  <property name="horizontalScrollBarPolicy">
+                   <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+                  </property>
+                  <property name="widgetResizable">
+                   <bool>true</bool>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignmentFlag::AlignCenter</set>
+                  </property>
+                  <widget class="QWidget" name="updatesScrollAreaContents">
+                   <property name="geometry">
+                    <rect>
+                     <x>0</x>
+                     <y>0</y>
+                     <width>563</width>
+                     <height>397</height>
+                    </rect>
+                   </property>
+                  </widget>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="refreshButton">
+                  <property name="styleSheet">
+                   <string notr="true">QPushButton {
+   background-color: rgb(57, 62, 70);
+   border: none;
+   color: #FFFFFF;
+   text-align: center;
+   border-radius: 5px;
+}
+QPushButton:hover {
+	background-color: rgb(47, 52, 60);
+ }</string>
+                  </property>
+                  <property name="text">
+                   <string>Refresh</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </widget>
              </item>
             </layout>

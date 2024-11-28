@@ -40,6 +40,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
         self.updatesScrollAreaContents = self.findChild(QtWidgets.QWidget, "updatesScrollAreaContents")
         self.updatesScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.updatesScrollAreaContents)
+        
+        self.refreshButton = self.findChild(QtWidgets.QPushButton, "refreshButton")
+        self.refreshButton.clicked.connect(lambda: update_updates(self))
 
         self.addRepoButton = self.findChild(QtWidgets.QPushButton, "addRepoButton")
         self.addRepoButton.clicked.connect(self.open_add_repo_dialog)
@@ -214,7 +217,7 @@ def update_repo(self, name, url, path, version):
         update_repo_buttons(self)
     
     QtWidgets.QMessageBox.information(self, "Repository Updated", "The repository has been updated.")
-
+    
 def update_repo_buttons(self):
     if self.repoButtonsScrollAreaContentsLayout.count() > 0:
         clear_layout(self.repoButtonsScrollAreaContentsLayout)
@@ -222,9 +225,10 @@ def update_repo_buttons(self):
         data = json.load(f)
         repos = data.get('repos', [])
         for repo in repos:
-            button = ClickableElidedLabel(repo['name'], repo['url'], connection=lambda: print("clicked"))
+            def make_connection(url):
+                return lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+            button = ClickableElidedLabel(repo['name'], repo['url'], connection=make_connection(repo['url']))
             button.setObjectName(repo['name'])
-            button.clicked.connect(lambda: print("clicked"))
             button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             button.customContextMenuRequested.connect(lambda: context_menu(self, QtGui.QCursor.pos()))
             self.repoButtonsScrollAreaContentsLayout.addWidget(button)
@@ -364,5 +368,10 @@ def clear_layout(layout):
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
+    app.setStyleSheet('''
+        QToolTip {
+            color: #FFFFFF;
+        }
+    ''')
     window = MainWindow()
     sys.exit(app.exec())
