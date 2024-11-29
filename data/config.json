@@ -98,11 +98,17 @@
                             ],
                             "correct_package_name": [
                                 {
-                                    "type": "text",
+                                    "type": "select",
                                     "label": "Correct Package Name",
                                     "key": "correct_package_name",
                                     "value": "",
-                                    "placeholder": "Correct Package Name"
+                                    "placeholder": "Select Package",
+                                    "options": [
+                                        {
+                                            "label": "Auto Detect",
+                                            "value": ""
+                                        }
+                                    ]
                                 }
                             ],
                             "version": [

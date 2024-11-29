@@ -4,7 +4,7 @@ from PyQt6 import QtWidgets, QtCore
 from components.settingframe import SettingsFrame
 
 class SettingsWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, assets):
         super().__init__()
         self.setWindowTitle("Settings")
         self.setting_inputs = {}
@@ -13,6 +13,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
         self.save_button = QtWidgets.QPushButton("Save")
         self.save_button.clicked.connect(self.save_settings)
         self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
+        self.assets = assets
 
     def load_settings(self):
         while self.tab_widget.count() > 0:
@@ -95,12 +96,13 @@ class SettingsWindow(QtWidgets.QMainWindow):
                     if repo_name in self.setting_inputs:
                         widgets = self.setting_inputs[repo_name]['widgets']
                         
-                        for key in ['path', 'url', 'correct_package_name', 'version']:
-                            if key in widgets:
-                                repo[key] = widgets[key].text()
-                        
-                        if 'auto_update' in widgets:
-                            repo['auto_update'] = widgets['auto_update'].isChecked()
+                        for key, widget in widgets.items():
+                            if isinstance(widget, QtWidgets.QCheckBox):
+                                repo[key] = widget.isChecked()
+                            elif isinstance(widget, QtWidgets.QComboBox):
+                                repo[key] = widget.currentText()
+                            else:
+                                repo[key] = widget.text()
 
                 f.seek(0)
                 json.dump(repos_data, f, indent=4)
@@ -113,7 +115,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
 
     def _load_repo_category(self, category):
         with open('data/repos.json', 'r') as f:
-                repos_data = json.load(f)
+            repos_data = json.load(f)
         if repos_data['repos']:
             repo_tab = QtWidgets.QWidget()
             repo_layout = QtWidgets.QVBoxLayout()
@@ -123,26 +125,34 @@ class SettingsWindow(QtWidgets.QMainWindow):
                 repo_sub_tab = QtWidgets.QWidget()
                 repo_sub_layout = QtWidgets.QVBoxLayout()
 
-                # Initialize repository settings structure
                 self.setting_inputs[repo['name']] = {
                     'widgets': {},
                     'settings': {}
                 }
 
-                # Create setting frames for each setting
+                # Format options correctly
+                asset_options = ["Auto Detect"]
+                if repo['name'] in self.assets:
+                    asset_options.extend([asset.name for asset in self.assets[repo['name']]])
+                    
                 settings_map = {
                     'path': ('Path', 'path'),
                     'url': ('URL', 'url'),
-                    'correct_package_name': ('Correct Package Name', 'text'),
+                    'correct_package_name': ('Correct Package Name', 'select', asset_options),  # Pass formatted options
                     'version': ('Version', 'text'),
                     'auto_update': ('Auto Update', 'checkbox')
                 }
 
-                for key, (label, setting_type) in settings_map.items():
+                for key, setting_info in settings_map.items():
+                    label = setting_info[0]
+                    setting_type = setting_info[1]
+                    options = setting_info[2] if len(setting_info) > 2 else None
+                    
                     setting_frame = SettingsFrame(
                         label=label,
                         setting_type=setting_type,
-                        default_value=repo.get(key, '')
+                        default_value=repo.get(key, ''),
+                        options=options
                     )
                     repo_sub_layout.addWidget(setting_frame)
                     

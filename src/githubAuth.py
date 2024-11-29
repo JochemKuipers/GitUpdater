@@ -65,7 +65,17 @@ class GitHub():
         current_arch = platform.machine().lower()
         arch_variants_list = arch_variants(current_arch)       
         
-        os_filtered_assets = [asset for asset in latest_release.get_assets() if current_os in asset.name.lower()]
+        os_filtered_assets = []
+        for asset in latest_release.get_assets():
+            asset_name = asset.name.lower()
+            if current_os in asset_name:
+                os_filtered_assets.append(asset)
+            elif current_os == 'linux' and asset_name.endswith('.appimage'):
+                os_filtered_assets.append(asset)
+            elif current_os == 'windows' and asset_name.endswith('.exe'):
+                os_filtered_assets.append(asset)
+            elif current_os == 'darwin' and asset_name.endswith('.dmg'):
+                os_filtered_assets.append(asset)
         
         if correct_package_name:
             # Replace * with a regex pattern to match any version number
