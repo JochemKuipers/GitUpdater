@@ -13,6 +13,8 @@ from components.trayicon import SystemTrayIcon
 
 from src.githubAuth import GitHub, clean_github_link
 from src.settings import SettingsWindow
+from concurrent.futures import ThreadPoolExecutor
+import math
 import src.updater
 
 
@@ -42,7 +44,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.updatesScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.updatesScrollAreaContents)
         
         self.refreshButton = self.findChild(QtWidgets.QPushButton, "refreshButton")
-        self.refreshButton.clicked.connect(lambda: self.update_updates(self))
+        self.refreshButton.clicked.connect(lambda: self.update_updates())
 
         self.addRepoButton = self.findChild(QtWidgets.QPushButton, "addRepoButton")
         self.addRepoButton.clicked.connect(self.open_add_repo_dialog)
@@ -112,7 +114,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     f.seek(0)
                     json.dump(data, f, indent=4)
                     f.truncate()
-                    self.update_repo_buttons(self)
+                    self.update_repo_buttons()
 
             except FileNotFoundError:
                 with open('data/repos.json', 'w', encoding='utf-8') as f:
@@ -166,48 +168,110 @@ class MainWindow(QtWidgets.QMainWindow):
                     return settings[setting_name][0].get('value', value)
         return None
         
+    class UpdateWorker(QtCore.QObject):
+        finished = QtCore.pyqtSignal()
+        progress = QtCore.pyqtSignal(object)
+        error = QtCore.pyqtSignal(str)
+
+        def __init__(self, repos, git):
+            super().__init__()
+            self.repos = repos
+            self.git = git
+            self.assets = {}
+            
+        def process_repo(self, repo):
+            try:
+                latest_release = self.git.get_latest_release_url(repo['url'])
+                self.assets[repo['name']] = latest_release.get_assets()
+                asset, correct_package_name = self.git.find_correct_asset_in_list(latest_release, None, repo.get('correct_package_name'))
+                
+                if asset:
+                    version = self.git.get_asset_version(asset=asset, page=latest_release)
+                    old_version = repo['version']
+                    if old_version == version:
+                        return None
+                    if old_version == "":
+                        old_version = "N/A"
+                        
+                    result = {
+                        'name': repo['name'],
+                        'old_version': old_version,
+                        'new_version': version,
+                        'asset_name': asset.name,
+                        'asset_url': asset.browser_download_url,
+                        'path': repo['path'],
+                        'updated_at': asset.updated_at.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+                        'correct_package_name': correct_package_name
+                    }
+                    return result
+            except Exception as e:
+                self.error.emit(f"Error updating {repo['name']}: {str(e)}")
+                return None
+
+        def run(self):
+            BATCH_SIZE = 5
+            with ThreadPoolExecutor(max_workers=BATCH_SIZE) as executor:
+                for result in executor.map(self.process_repo, self.repos):
+                    if result:
+                        self.progress.emit(result)
+            self.finished.emit()
+
     def update_updates(self):
         if self.updatesScrollAreaContentsLayout.count() > 0:
             self.clear_layout(self.updatesScrollAreaContentsLayout)
+            
         with open('data/repos.json', 'r+', encoding='utf-8') as f:
             data = json.load(f)
             git = GitHub()
             repos = data.get('repos', [])
-            updates_frame = None
-            for repo in repos:
-                try:
-                    latest_release = git.get_latest_release_url(repo['url'])
-                    self.assets[repo['name']] = latest_release.get_assets()
-                    asset, correct_package_name = git.find_correct_asset_in_list(latest_release, self, repo.get('correct_package_name'))
-                    if asset:
-                        version = git.get_asset_version(asset=asset, page=latest_release)
-                        old_version = repo['version']
-                        if old_version == version:
-                            continue
-                        if old_version == "":
-                            old_version = "N/A"
-                            
-                        def make_connection(self, name, url, path, version):
-                            return lambda: self.update_repo(self, name, url, path, version)
-                        updates_frame = UpdatesFrame(
-                            label=repo['name'],
-                            old_version=old_version,
-                            new_version=version,
-                            last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            last_updated=asset.updated_at.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
-                            tooltip=asset.name,
-                            connection=make_connection(self, repo['name'], asset.browser_download_url, repo['path'], version)
-                        )
-                        self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
-                        if correct_package_name:
-                            repo['correct_package_name'] = correct_package_name
-                except Exception as e:
-                    QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {repo['name']}: {e}")
-                self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
+
+            # Create thread and worker
+            self.thread = QtCore.QThread()
+            self.worker = self.UpdateWorker(repos, git)
+            self.worker.moveToThread(self.thread)
+
+            # Connect signals
+            self.thread.started.connect(self.worker.run)
+            self.worker.finished.connect(self.thread.quit)
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.worker.finished.connect(self.updatesScrollAreaContentsLayout.addStretch)
+            self.thread.finished.connect(self.thread.deleteLater)
+            self.worker.progress.connect(self.handle_update_progress)
+            self.worker.error.connect(lambda msg: QtWidgets.QMessageBox.warning(self, "Error", msg))
+
+            # Start thread
+            self.thread.start()
+
+    def handle_update_progress(self, result):
+        def make_connection(name, url, path, version):
+            return lambda: self.update_repo(name, url, path, version)
+            
+        updates_frame = UpdatesFrame(
+            label=result['name'],
+            old_version=result['old_version'],
+            new_version=result['new_version'],
+            last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            last_updated=result['updated_at'],
+            tooltip=result['asset_name'],
+            connection=make_connection(result['name'], 
+                                    result['asset_url'], 
+                                    result['path'], 
+                                    result['new_version'])
+        )
+        
+        self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
+
+        # Update repos.json
+        with open('data/repos.json', 'r+', encoding='utf-8') as f:
+            data = json.load(f)
+            for repo in data['repos']:
+                if repo['name'] == result['name']:
+                    if result['correct_package_name']:
+                        repo['correct_package_name'] = result['correct_package_name']
+                    # repo['version'] = result['new_version']
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-            self.updatesScrollAreaContentsLayout.addStretch()
             
     def update_repo(self, name, url, path, version):
         try:
@@ -223,7 +287,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-            self.update_repo_buttons(self)
+            self.update_repo_buttons()
         
         QtWidgets.QMessageBox.information(self, "Repository Updated", "The repository has been updated.")
         
@@ -316,7 +380,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-            self.update_repo_buttons(self)
+            self.update_repo_buttons()
 
 
     def change_repo_name(self, old_name, new_name):
@@ -332,7 +396,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-            self.update_repo_buttons(self)
+            self.update_repo_buttons()
 
 
     def change_repo_url(self, name, new_url):
@@ -348,7 +412,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-            self.update_repo_buttons(self)
+            self.update_repo_buttons()
 
 
     def delete_repo(self, name):
@@ -364,7 +428,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-            self.update_repo_buttons(self)
+            self.update_repo_buttons()
 
 
     def clear_layout(self, layout):

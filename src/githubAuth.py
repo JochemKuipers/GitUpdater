@@ -3,6 +3,16 @@ import platform
 import re
 from github import Github, Auth
 from PyQt6 import QtWidgets
+import time
+from functools import lru_cache
+
+def timed_cache(seconds: int):
+    def wrapper_decorator(func):
+        func = lru_cache(maxsize=128)(func)
+        func.lifetime = seconds
+        func.expiration = time.time() + seconds
+        return func
+    return wrapper_decorator
 
 
 def clean_github_link(link: str) -> str:
@@ -43,6 +53,7 @@ class GitHub():
         self.current_arch = platform.machine().lower()
         print(f"OS: {self.current_os}, Architecture: {self.current_arch}")
     
+    @timed_cache(300)
     def get_latest_release_url(self, repo_url):
         repo_name = repo_url.split('/')[3] + '/' + repo_url.split('/')[4]
         repo = self.g.get_repo(repo_name)
