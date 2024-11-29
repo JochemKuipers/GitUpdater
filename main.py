@@ -2,6 +2,7 @@ import json
 import sys
 from PyQt6 import QtWidgets, uic, QtCore, QtGui
 from datetime import datetime
+import logging
 
 # noinspection PyUnresolvedReferences
 from assets import resources_rc
@@ -14,13 +15,15 @@ from components.trayicon import SystemTrayIcon
 from src.githubAuth import GitHub, clean_github_link
 from src.settings import SettingsWindow
 from concurrent.futures import ThreadPoolExecutor
-import math
 import src.updater
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
+logger = logging.getLogger(__name__)
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+        logging.info("Starting GitUpdater")
         uic.loadUi("components/mainwindow.ui", self)  # type: ignore
         
         self.setWindowTitle("GitUpdater")
@@ -29,7 +32,8 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             with open('data/config.json', 'r') as f:
                 self.config = json.load(f)
-        except FileNotFoundError:    
+        except FileNotFoundError:
+            logging.info("Creating config.json")
             template = open('src/config_template.json', 'r')
             with open('data/config.json', 'w') as f:
                 f.write(template.read())
@@ -55,6 +59,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settingswindow = None
         self.assets = {}
         
+        logging.info("Starting Tray Icon")
         self.tray_icon = SystemTrayIcon(self)
         self.tray_icon.show()
         
@@ -62,24 +67,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_repo_buttons()
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error loading repositories: {e}")
+            logging.error(f"Error loading repositories: {e}")
         
         if self.get_setting('check_updates', True):
             try:
                 self.update_updates()
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Error", f"Error updating repositories: {e}")
+                logging.error(f"Error updating repositories: {e}")
  
                 
 
 
         self.show()
-        
-    def show_loading(self):
-        self.loading = QtWidgets.QLabel("Loading...")
-        movie = QtGui.QMovie(":/loading.gif")
-        self.loading.setMovie(movie)
-        movie.start()
-        self.setCentralWidget(self.loading)
 
     def open_settings(self):
         if not isinstance(self.settingswindow, SettingsWindow):
@@ -117,6 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.update_repo_buttons()
 
             except FileNotFoundError:
+                logging.info("Creating repos.json")
                 with open('data/repos.json', 'w', encoding='utf-8') as f:
                     json.dump({"repos": [{"name": name, "url": github_link, "path": data['path'], "correct_package_name": "", "version": "", "auto_update": data['auto_update']}]}, f, indent=4)
 
@@ -171,13 +172,14 @@ class MainWindow(QtWidgets.QMainWindow):
     class UpdateWorker(QtCore.QObject):
         finished = QtCore.pyqtSignal()
         progress = QtCore.pyqtSignal(object)
+        assets_updated = QtCore.pyqtSignal(dict)  # New signal
         error = QtCore.pyqtSignal(str)
 
-        def __init__(self, repos, git):
+        def __init__(self, repos, git, current_assets=None):
             super().__init__()
             self.repos = repos
             self.git = git
-            self.assets = {}
+            self.assets = current_assets or {}
             
         def process_repo(self, repo):
             try:
@@ -205,6 +207,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     }
                     return result
             except Exception as e:
+                logging.error(f"Error updating {repo['name']}: {str(e)}")
                 self.error.emit(f"Error updating {repo['name']}: {str(e)}")
                 return None
 
@@ -214,6 +217,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 for result in executor.map(self.process_repo, self.repos):
                     if result:
                         self.progress.emit(result)
+            self.assets_updated.emit(self.assets)  # Emit updated assets
             self.finished.emit()
 
     def update_updates(self):
@@ -227,7 +231,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Create thread and worker
             self.thread = QtCore.QThread()
-            self.worker = self.UpdateWorker(repos, git)
+            self.worker = self.UpdateWorker(repos, git, self.assets)  # Pass current assets
             self.worker.moveToThread(self.thread)
 
             # Connect signals
@@ -238,9 +242,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.thread.finished.connect(self.thread.deleteLater)
             self.worker.progress.connect(self.handle_update_progress)
             self.worker.error.connect(lambda msg: QtWidgets.QMessageBox.warning(self, "Error", msg))
+            self.worker.assets_updated.connect(self.update_assets)  # New signal
 
             # Start thread
             self.thread.start()
+
+    @QtCore.pyqtSlot(dict)
+    def update_assets(self, new_assets):
+        """Update assets dictionary with new values"""
+        self.assets.update(new_assets)
 
     def handle_update_progress(self, result):
         def make_connection(name, url, path, version):
@@ -268,7 +278,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 if repo['name'] == result['name']:
                     if result['correct_package_name']:
                         repo['correct_package_name'] = result['correct_package_name']
-                    # repo['version'] = result['new_version']
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
@@ -278,6 +287,7 @@ class MainWindow(QtWidgets.QMainWindow):
             src.updater.update(url, path)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {name}: {e}")
+            logging.error(f"Error updating {name}: {e}")
             return
         
         with open('data/repos.json', 'r+', encoding='utf-8') as f:
@@ -290,6 +300,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_repo_buttons()
         
         QtWidgets.QMessageBox.information(self, "Repository Updated", "The repository has been updated.")
+        logging.info(f"Repository {name} updated successfully")
         
     def update_repo_buttons(self):
         if self.repoButtonsScrollAreaContentsLayout.count() > 0:
@@ -368,76 +379,94 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def change_local_path(self, name, new_path):
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            repos = data.get('repos', [])
-            for repo in repos:
-                if repo['name'] == name:
-                    repo['path'] = new_path
-                    break
+        try:
+            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                repos = data.get('repos', [])
+                for repo in repos:
+                    if repo['name'] == name:
+                        repo['path'] = new_path
+                        break
 
-            data['repos'] = repos
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
-            self.update_repo_buttons()
+                data['repos'] = repos
+                f.seek(0)
+                json.dump(data, f, indent=4)
+                f.truncate()
+                self.update_repo_buttons()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error changing local path: {e}")
+            logging.error(f"Error changing local path: {e}")
 
 
     def change_repo_name(self, old_name, new_name):
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            repos = data.get('repos', [])
-            for repo in repos:
-                if repo['name'] == old_name:
-                    repo['name'] = new_name
-                    break
+        try:
+            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                repos = data.get('repos', [])
+                for repo in repos:
+                    if repo['name'] == old_name:
+                        repo['name'] = new_name
+                        break
 
-            data['repos'] = repos
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
-            self.update_repo_buttons()
-
+                data['repos'] = repos
+                f.seek(0)
+                json.dump(data, f, indent=4)
+                f.truncate()
+                self.update_repo_buttons()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error changing repository name: {e}")
+            logging.error(f"Error changing repository: {e}")
 
     def change_repo_url(self, name, new_url):
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            repos = data.get('repos', [])
-            for repo in repos:
-                if repo['name'] == name:
-                    repo['url'] = new_url
-                    break
+        try:
+            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                repos = data.get('repos', [])
+                for repo in repos:
+                    if repo['name'] == name:
+                        repo['url'] = new_url
+                        break
 
-            data['repos'] = repos
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
-            self.update_repo_buttons()
+                data['repos'] = repos
+                f.seek(0)
+                json.dump(data, f, indent=4)
+                f.truncate()
+                self.update_repo_buttons()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error changing repository URL: {e}")
+            logging.error(f"Error changing repository URL: {e}")
 
 
     def delete_repo(self, name):
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            repos = data.get('repos', [])
-            for repo in repos:
-                if repo['name'] == name:
-                    repos.remove(repo)
-                    break
+        try:
+            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                repos = data.get('repos', [])
+                for repo in repos:
+                    if repo['name'] == name:
+                        repos.remove(repo)
+                        break
 
-            data['repos'] = repos
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
-            self.update_repo_buttons()
-
+                data['repos'] = repos
+                f.seek(0)
+                json.dump(data, f, indent=4)
+                f.truncate()
+                self.update_repo_buttons()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error deleting repository: {e}")
+            logging.error(f"Error deleting repository: {e}")
 
     def clear_layout(self, layout):
-        while layout.count():
-            child = layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-            elif child.layout():
-                self.clear_layout(child.layout())
+        try:
+            while layout.count():
+                child = layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+                elif child.layout():
+                    self.clear_layout(child.layout())
+        except Exception as e:
+            logging.error(f"Error clearing layout: {e}")
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error clearing layout: {e}")
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

@@ -5,6 +5,11 @@ from github import Github, Auth
 from PyQt6 import QtWidgets
 import time
 from functools import lru_cache
+import logging
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
+logger = logging.getLogger(__name__)
 
 def timed_cache(seconds: int):
     def wrapper_decorator(func):
@@ -45,19 +50,29 @@ class GitHub():
         dotenv.load_dotenv()
 
         self.auth = Auth.Token(dotenv.get_key(".env", "GITHUB_ACCESS_TOKEN"))
+        if not self.auth:
+            logger.error("GitHub access token not found.")
+            return
         self.g = Github(auth=self.auth)
 
         self.g.get_user().login
         
         self.current_os = platform.system().lower()
+        logger.info(f"OS: {self.current_os}")
         self.current_arch = platform.machine().lower()
-        print(f"OS: {self.current_os}, Architecture: {self.current_arch}")
+        logger.info(f"Architecture: {self.current_arch}")
     
     @timed_cache(300)
     def get_latest_release_url(self, repo_url):
         repo_name = repo_url.split('/')[3] + '/' + repo_url.split('/')[4]
         repo = self.g.get_repo(repo_name)
+        if not repo:
+            logger.error(f"Repository not found for {repo_name}")
+            return None
         latest_release = repo.get_latest_release()
+        if not latest_release:
+            logger.error(f"Latest release not found for {repo_name}")
+            return None
         return latest_release
     
     def get_asset_version(self, asset, page):
@@ -72,20 +87,18 @@ class GitHub():
             return asset.updated_at.astimezone().strftime("%Y-%m-%d")
         
     def find_correct_asset_in_list(self, latest_release, parent_widget, correct_package_name=None):
-        current_os = platform.system().lower()
-        current_arch = platform.machine().lower()
-        arch_variants_list = arch_variants(current_arch)       
+        arch_variants_list = arch_variants(self.current_arch)       
         
         os_filtered_assets = []
         for asset in latest_release.get_assets():
             asset_name = asset.name.lower()
-            if current_os in asset_name:
+            if self.current_os in asset_name:
                 os_filtered_assets.append(asset)
-            elif current_os == 'linux' and asset_name.endswith('.appimage'):
+            elif self.current_os == 'linux' and asset_name.endswith('.appimage'):
                 os_filtered_assets.append(asset)
-            elif current_os == 'windows' and asset_name.endswith('.exe'):
+            elif self.current_os == 'windows' and asset_name.endswith('.exe'):
                 os_filtered_assets.append(asset)
-            elif current_os == 'darwin' and asset_name.endswith('.dmg'):
+            elif self.current_os == 'darwin' and asset_name.endswith('.dmg'):
                 os_filtered_assets.append(asset)
         
         if correct_package_name:
@@ -112,4 +125,5 @@ class GitHub():
                         if asset.name == item:
                             return asset, item
         QtWidgets.QMessageBox.warning(parent_widget, "Info", "No assets found for the current OS and architecture.")
+        logger.error(f"No assets found for the current OS and architecture.")
         return None, None
