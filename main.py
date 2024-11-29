@@ -28,6 +28,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.setWindowTitle("GitUpdater")
         
+        self.threads = []  # Keep track of threads
+        self.workers = []  # Keep track of workers
         
         try:
             with open('data/config.json', 'r') as f:
@@ -229,23 +231,36 @@ class MainWindow(QtWidgets.QMainWindow):
             git = GitHub()
             repos = data.get('repos', [])
 
-            # Create thread and worker
-            self.thread = QtCore.QThread()
-            self.worker = self.UpdateWorker(repos, git, self.assets)  # Pass current assets
-            self.worker.moveToThread(self.thread)
+            # Create and store thread/worker
+            thread = QtCore.QThread()
+            worker = self.UpdateWorker(repos, git, self.assets)
+            
+            # Store references to prevent GC
+            self.threads.append(thread)
+            self.workers.append(worker)
+            
+            worker.moveToThread(thread)
 
             # Connect signals
-            self.thread.started.connect(self.worker.run)
-            self.worker.finished.connect(self.thread.quit)
-            self.worker.finished.connect(self.worker.deleteLater)
-            self.worker.finished.connect(self.updatesScrollAreaContentsLayout.addStretch)
-            self.thread.finished.connect(self.thread.deleteLater)
-            self.worker.progress.connect(self.handle_update_progress)
-            self.worker.error.connect(lambda msg: QtWidgets.QMessageBox.warning(self, "Error", msg))
-            self.worker.assets_updated.connect(self.update_assets)  # New signal
+            thread.started.connect(worker.run)
+            worker.finished.connect(lambda: self.cleanup_thread(thread, worker))
+            worker.finished.connect(self.updatesScrollAreaContentsLayout.addStretch)
+            worker.progress.connect(self.handle_update_progress)
+            worker.assets_updated.connect(self.update_assets)
+            worker.error.connect(lambda msg: QtWidgets.QMessageBox.warning(self, "Error", msg))
 
-            # Start thread
-            self.thread.start()
+            thread.start()
+
+    def cleanup_thread(self, thread, worker):
+        """Clean up thread and worker properly"""
+        thread.quit()
+        thread.wait()  # Wait for thread to finish
+        
+        # Remove from storage
+        if thread in self.threads:
+            self.threads.remove(thread)
+        if worker in self.workers:
+            self.workers.remove(worker)
 
     @QtCore.pyqtSlot(dict)
     def update_assets(self, new_assets):
