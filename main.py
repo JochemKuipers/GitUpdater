@@ -92,8 +92,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_add_repo_dialog(self):
         dialog = AddRepoDialog(self)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            data = dialog.get_data()
-            github_link = clean_github_link(data['url'])
+            dialog_data = dialog.get_data()
+            github_link = clean_github_link(dialog_data['url'])
             try:
                 if not github_link.startswith("https://github.com/"):
                     raise ValueError("Invalid GitHub link")
@@ -103,8 +103,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 name = parts[3] + '/' + parts[4]
 
                 with open('data/repos.json', 'r+', encoding='utf-8') as f:
-                    data = json.load(f)
-                    repos = data.get('repos', [])
+                    repo_data = json.load(f)
+                    repos = repo_data.get('repos', [])
                     for repo in repos:
                         if repo['name'] == name:
                             if repo['url'] == github_link:
@@ -112,16 +112,16 @@ class MainWindow(QtWidgets.QMainWindow):
                             else:
                                 raise ValueError("Repository with the same name already exists")
 
-                    data['repos'].append({"name": name, "url": github_link, "path": data['path'], "correct_package_name": "", "version": "", "auto_update": data['auto_update']})
+                    repo_data['repos'].append({"name": name, "url": github_link, "path": dialog_data['path'], "correct_package_name": "", "version": "", "auto_update": dialog_data['auto_update']})
                     f.seek(0)
-                    json.dump(data, f, indent=4)
+                    json.dump(repo_data, f, indent=4)
                     f.truncate()
                     self.update_repo_buttons()
 
             except FileNotFoundError:
                 logging.info("Creating repos.json")
                 with open('data/repos.json', 'w', encoding='utf-8') as f:
-                    json.dump({"repos": [{"name": name, "url": github_link, "path": data['path'], "correct_package_name": "", "version": "", "auto_update": data['auto_update']}]}, f, indent=4)
+                    json.dump({"repos": [{"name": name, "url": github_link, "path": dialog_data['path'], "correct_package_name": "", "version": "", "auto_update": dialog_data['auto_update']}]}, f, indent=4)
 
             except ValueError as e:
                 QtWidgets.QMessageBox.warning(self, "Error", str(e))
@@ -329,7 +329,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 button = ClickableElidedLabel(repo['name'], repo['url'], connection=make_connection(repo['url']))
                 button.setObjectName(repo['name'])
                 button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
-                button.customContextMenuRequested.connect(lambda: self.context_menu(self, QtGui.QCursor.pos()))
+                button.customContextMenuRequested.connect(lambda: self.context_menu(QtGui.QCursor.pos()))
                 self.repoButtonsScrollAreaContentsLayout.addWidget(button)
 
             self.repoButtonsScrollAreaContentsLayout.addStretch()
@@ -350,8 +350,8 @@ class MainWindow(QtWidgets.QMainWindow):
             confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
             confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
             if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                repo_name = self.sender().text()
-                self.delete_repo(self, repo_name)
+                repo_name = self.sender().objectName()
+                self.delete_repo(repo_name)
         elif action == change_name_action:  # Change name action
             new_name, ok = QtWidgets.QInputDialog.getText(self, title="Change Repository Name", label="Enter the new name:", text=self.sender().objectName())
             if ok:
@@ -376,7 +376,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
                 confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
                 if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                    self.change_repo_url(self, self.sender().toolTip(), new_url)
+                    self.change_repo_url(self.sender().toolTip(), new_url)
         elif action == chage_local_path_action:  # Change local path action
             new_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Change Local Path", "Pick a new local path:", QtWidgets.QFileDialog.Option.ShowDirsOnly)
             if new_path:
@@ -388,7 +388,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
                 confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
                 if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                    self.change_local_path(self, self.sender().text(), new_path)
+                    self.change_local_path(self.sender().text(), new_path)
         else:
             return
 
