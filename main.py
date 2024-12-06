@@ -223,6 +223,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.finished.emit()
 
     def update_updates(self):
+        logger.info("Updating repositories")
         if self.updatesScrollAreaContentsLayout.count() > 0:
             self.clear_layout(self.updatesScrollAreaContentsLayout)
             
@@ -323,6 +324,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logging.info(f"Repository {name} updated successfully")
         
     def update_repo_buttons(self):
+        logger.info("Updating repository buttons")
         if self.repoButtonsScrollAreaContentsLayout.count() > 0:
             self.clear_layout(self.repoButtonsScrollAreaContentsLayout)
         with open('data/repos.json', 'r', encoding='utf-8') as f:

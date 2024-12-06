@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 def download_file(url, path):
     """Download a single file from URL to specified path"""
     try:
+        logger.info(f"Downloading file: {url}")
         if not os.path.exists(path):
             raise FileNotFoundError("Download path does not exist")
             
@@ -46,6 +47,7 @@ def download_file(url, path):
 def download_files(urls, paths):
     """Download multiple files concurrently"""
     try:
+        logger.info(f"Downloading files: {urls}")
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(download_file, urls, paths))
         logger.info(f"Downloaded files: {results}")
@@ -57,6 +59,7 @@ def download_files(urls, paths):
 def unarchive_file(file_path, output_path):
     """Extract archive to specified output path"""
     try:
+        logger.info(f"Checking archive file: {file_path}")
         if not os.path.exists(file_path):
             logger.error(f"Archive file not found: {file_path}")
             raise FileNotFoundError(f"Archive file not found: {file_path}")
@@ -77,6 +80,7 @@ def unarchive_file(file_path, output_path):
 def update(url, path):
     """Download and process update file"""
     try:
+        logger.info(f"Updating from: {url}")
         # Download file
         file_path = download_file(url, path)
         if not file_path:

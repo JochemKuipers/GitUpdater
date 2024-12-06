@@ -47,7 +47,11 @@ def arch_variants(arch):
 
 class GitHub():
     def __init__(self):
-        dotenv.load_dotenv()
+        try:
+            dotenv.load_dotenv()
+        except FileNotFoundError:
+            logger.error(".env file not found.")
+            return
 
         self.auth = Auth.Token(dotenv.get_key(".env", "GITHUB_ACCESS_TOKEN"))
         if not self.auth:
@@ -64,6 +68,7 @@ class GitHub():
     
     @timed_cache(300)
     def get_latest_release_url(self, repo_url):
+        logger.info(f"Getting latest release URL for {repo_url}")
         repo_name = repo_url.split('/')[3] + '/' + repo_url.split('/')[4]
         repo = self.g.get_repo(repo_name)
         if not repo:
@@ -76,6 +81,7 @@ class GitHub():
         return latest_release
     
     def get_asset_version(self, asset, page):
+        logger.info(f"Getting asset version for {asset.name}")
         # Try to extract version number from the release title
         version_pattern = re.compile(r'\d+(\.\d+)+')
         match = version_pattern.search(page.title)
@@ -87,6 +93,7 @@ class GitHub():
             return asset.updated_at.astimezone().strftime("%Y-%m-%d")
         
     def find_correct_asset_in_list(self, latest_release, parent_widget, correct_package_name=None):
+        logger.info(f"Finding correct asset in list for {latest_release.html_url}")
         arch_variants_list = arch_variants(self.current_arch)       
         
         os_filtered_assets = []
