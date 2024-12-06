@@ -226,6 +226,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.updatesScrollAreaContentsLayout.count() > 0:
             self.clear_layout(self.updatesScrollAreaContentsLayout)
             
+        self.settingsButton.setEnabled(False)
+            
         with open('data/repos.json', 'r+', encoding='utf-8') as f:
             data = json.load(f)
             git = GitHub()
@@ -244,12 +246,15 @@ class MainWindow(QtWidgets.QMainWindow):
             # Connect signals
             thread.started.connect(worker.run)
             worker.finished.connect(lambda: self.cleanup_thread(thread, worker))
-            worker.finished.connect(self.updatesScrollAreaContentsLayout.addStretch)
+            worker.finished.connect(self.on_update_worker_finished)
             worker.progress.connect(self.handle_update_progress)
             worker.assets_updated.connect(self.update_assets)
             worker.error.connect(lambda msg: QtWidgets.QMessageBox.warning(self, "Error", msg))
 
             thread.start()
+    def on_update_worker_finished(self):
+        self.settingsButton.setEnabled(True)
+        self.updatesScrollAreaContentsLayout.addStretch()
 
     def cleanup_thread(self, thread, worker):
         """Clean up thread and worker properly"""
