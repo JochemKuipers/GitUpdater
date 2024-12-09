@@ -89,6 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.hide()
         else: 
             self.show()
+        self.shownbefore = False
 
     def open_settings(self):
         if not isinstance(self.settingswindow, SettingsWindow):
@@ -159,15 +160,18 @@ class MainWindow(QtWidgets.QMainWindow):
             
     def minimizeEvent(self, event):
         if self.tray_icon.isVisible():
-            if self.isVisible():
+            if self.isVisible() and not self.shownbefore:
                 QtWidgets.QMessageBox.information(
                     self, 
                     "GitUpdater",
                     "The application will keep running in the system tray. "
                     "To restore, click the tray icon."
                 )
+                self.shownbefore = True
             self.hide()
             event.ignore()
+        else:
+            event.accept()
 
         
     def get_setting(self, setting_name, value=None):
