@@ -32,7 +32,7 @@
                                     "type": "checkbox",
                                     "label": "Start on Boot",
                                     "key": "start_on_boot",
-                                    "value": false
+                                    "value": true
                                 }
                             ],
                             "start_minimized": [
@@ -40,7 +40,7 @@
                                     "type": "checkbox",
                                     "label": "Start Minimized",
                                     "key": "start_minimized",
-                                    "value": false
+                                    "value": true
                                 }
                             ],
                             "tray_on_close": [

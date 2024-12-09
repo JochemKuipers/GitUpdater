@@ -84,11 +84,11 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Error", f"Error updating repositories: {e}")
                 logging.error(f"Error updating repositories: {e}")
- 
                 
-
-
-        self.show()
+        if self.get_setting('start_minimized', True):
+            self.hide()
+        else: 
+            self.show()
 
     def open_settings(self):
         if not isinstance(self.settingswindow, SettingsWindow):
@@ -177,7 +177,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 settings = category['General'][0]['settings'][0]
                 if setting_name in settings:
                     return settings[setting_name][0].get('value', value)
-        return None
+        raise ValueError(f"Setting {setting_name} not found")
         
     class UpdateWorker(QtCore.QObject):
         finished = QtCore.pyqtSignal()

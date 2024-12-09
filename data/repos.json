@@ -20,7 +20,7 @@
             "name": "bpozdena/OneDriveGUI",
             "url": "https://github.com/bpozdena/OneDriveGUI",
             "path": "/home/jochem",
-            "correct_package_name": "",
+            "correct_package_name": "Auto Detect",
             "version": "",
             "auto_update": true
         }
