@@ -117,6 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     json.dump(repo_data, f, indent=4)
                     f.truncate()
                     self.update_repo_buttons()
+                    self.update_updates()
 
             except FileNotFoundError:
                 logging.info("Creating repos.json")

@@ -96,11 +96,7 @@ def update(url, path):
                 raise Exception("Cannot execute .exe file on non-Windows system")
         elif any(file_path.endswith(ext) for ext in ['.zip', '.tar.gz', '.rar', '.7z']):
             logger.info(f"Extracting archive: {file_path}")
-            unarchive_file(file_path, path)
-        else:
-            logger.error("Unsupported file type")
-            raise Exception("Unsupported file type")
-        
+            unarchive_file(file_path, path)          
         logger.info(f"Update complete: {file_path}")
         os.remove(file_path)
             
