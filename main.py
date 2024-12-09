@@ -41,7 +41,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 f.write(template.read())
                 f.close()
             with open('data/config.json', 'r') as f:
-                self.config = json.load(f)        
+                self.config = json.load(f)
+        try:
+            with open('data/repos.json', 'r') as f:
+                self.repos = json.load(f)
+        except FileNotFoundError:
+            logging.info("Creating repos.json")
+            with open('data/repos.json', 'w') as f:
+                f.write('{"repos": []}')
+            with open('data/repos.json', 'r') as f:
+                self.repos = json.load(f)
+                
+        
             
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
@@ -470,6 +481,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 json.dump(data, f, indent=4)
                 f.truncate()
                 self.update_repo_buttons()
+                self.update_updates()
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error deleting repository: {e}")
             logging.error(f"Error deleting repository: {e}")

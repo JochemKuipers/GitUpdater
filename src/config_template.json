@@ -43,6 +43,14 @@
                                     "default": false
                                 }
                             ],
+                            "minimize_to_tray": [
+                                {
+                                    "type": "checkbox",
+                                    "label": "Minimize to Tray",
+                                    "key": "minimize_to_tray",
+                                    "default": false
+                                }
+                            ],
                             "check_updates": [
                                 {
                                     "type": "checkbox",
