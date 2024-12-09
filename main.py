@@ -40,6 +40,8 @@ def get_config_path(filename):
     return os.path.join(get_config_dir(), filename)
 
 class MainWindow(QtWidgets.QMainWindow):
+    update_triggered = QtCore.pyqtSignal()  # New signal
+
     def __init__(self):
         super().__init__()
         logging.info("Starting GitUpdater")
@@ -54,6 +56,13 @@ class MainWindow(QtWidgets.QMainWindow):
             sys.exit(1)
         
         self.setWindowTitle("GitUpdater")
+        
+        self.pending_updates = []
+        self.update_mutex = QtCore.QMutex()
+        self.update_timer = QtCore.QTimer()
+        self.update_timer.timeout.connect(self.process_pending_updates)
+        self.update_timer.start(100)  # Process updates every 100ms
+
         
         self.threads = []  # Keep track of threads
         self.workers = []  # Keep track of workers
@@ -81,10 +90,7 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Error setting up config: {e}")
             logging.error(f"Error setting up config: {e}")
-            sys.exit(1)
-                
-        
-            
+            sys.exit(1)           
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
         self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
@@ -125,6 +131,38 @@ class MainWindow(QtWidgets.QMainWindow):
         else: 
             self.show()
         self.shownbefore = False
+
+        # Initialize thread-safe components
+        self.pending_updates = []
+        self.update_mutex = QtCore.QMutex()
+        self.update_worker = MainWindow.UpdateWorker()
+        self.update_thread = QtCore.QThread()
+        self.update_worker.moveToThread(self.update_thread)
+        
+        # Connect signals
+        self.update_triggered.connect(self.update_worker.process_updates)
+        self.update_worker.update_completed.connect(self.handle_update_completed)
+        
+        # Start thread
+        self.update_thread.start()
+        
+    def handle_update_completed(self):
+        """Handle completion of update processing"""
+        logging.info("Update processing completed")
+        self.settingsButton.setEnabled(True)
+        self.updatesScrollAreaContentsLayout.addStretch()
+       
+
+    def process_pending_updates(self):
+        with QtCore.QMutexLocker(self.update_mutex):
+            while self.pending_updates:
+                update_func = self.pending_updates.pop(0)
+                update_func()
+
+    def queue_update(self, func):
+        with QtCore.QMutexLocker(self.update_mutex):
+            self.pending_updates.append(func)
+            self.update_triggered.emit()
 
     def open_settings(self):
         if not isinstance(self.settingswindow, SettingsWindow):
@@ -223,12 +261,15 @@ class MainWindow(QtWidgets.QMainWindow):
         progress = QtCore.pyqtSignal(object)
         assets_updated = QtCore.pyqtSignal(dict)  # New signal
         error = QtCore.pyqtSignal(str)
+        update_completed = QtCore.pyqtSignal()
 
-        def __init__(self, repos, git, current_assets=None):
+        def __init__(self, repos=None, git=None, current_assets=None):
             super().__init__()
             self.repos = repos
             self.git = git
             self.assets = current_assets or {}
+            self.mutex = QtCore.QMutex()
+            self.updates = []
             
         def process_repo(self, repo):
             try:
@@ -268,6 +309,20 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.progress.emit(result)
             self.assets_updated.emit(self.assets)  # Emit updated assets
             self.finished.emit()
+
+        @QtCore.pyqtSlot()
+        def process_updates(self):
+            with QtCore.QMutexLocker(self.mutex):
+                while self.updates:
+                    update_func = self.updates.pop(0)
+                    try:
+                        update_func()
+                    except Exception as e:
+                        logging.error(f"Error processing update: {e}")
+            self.update_completed.emit()
+
+        def cleanup(self):
+            self.thread().quit()
 
     def update_updates(self):
         logger.info("Updating repositories")
@@ -371,28 +426,36 @@ class MainWindow(QtWidgets.QMainWindow):
         logging.info(f"Repository {name} updated successfully")
         
     def update_repo_buttons(self):
-        logger.info("Updating repository buttons")
-        if self.repoButtonsScrollAreaContentsLayout.count() > 0:
-            self.clear_layout(self.repoButtonsScrollAreaContentsLayout)
-        with open(self.repos_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            repos = data.get('repos', [])
-            for repo in repos:
-                def make_connection(url):
-                    return lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
-                button = ClickableElidedLabel(repo['name'], repo['url'], connection=make_connection(repo['url']))
-                button.setObjectName(repo['name'])
-                button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
-                button.customContextMenuRequested.connect(lambda: self.context_menu(QtGui.QCursor.pos()))
-                self.repoButtonsScrollAreaContentsLayout.addWidget(button)
+        def update():
+            if self.repoButtonsScrollAreaContentsLayout.count() > 0:
+                self.clear_layout(self.repoButtonsScrollAreaContentsLayout)
+            
+            try:
+                with open(self.repos_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    repos = data.get('repos', [])
+                    for repo in repos:
+                        button = ClickableElidedLabel(
+                            repo['name'],
+                            repo['url'],
+                            connection=lambda url=repo['url']: QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+                        )
+                        button.setObjectName(repo['name'])
+                        button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+                        button.customContextMenuRequested.connect(
+                            lambda pos, name=repo['name']: self.context_menu(pos, name)
+                        )
+                        self.repoButtonsScrollAreaContentsLayout.addWidget(button)
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating buttons: {e}")
+                logging.error(f"Error updating buttons: {e}")
 
-            self.repoButtonsScrollAreaContentsLayout.addStretch()
+        with QtCore.QMutexLocker(self.update_mutex):
+            self.pending_updates.append(update)
 
-
-    def context_menu(self, pos):
+    def context_menu(self, pos, repo_name):
         menu = QtWidgets.QMenu(self)
         button = self.sender()
-        repo_name = button.objectName()
 
         # Change Name
         change_name = QtGui.QAction("Change Name", self)
@@ -527,8 +590,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 child = layout.takeAt(0)
                 if child.widget():
                     child.widget().deleteLater()
-                elif child.layout():
-                    self.clear_layout(child.layout())
         except Exception as e:
             logging.error(f"Error clearing layout: {e}")
             QtWidgets.QMessageBox.warning(self, "Error", f"Error clearing layout: {e}")
