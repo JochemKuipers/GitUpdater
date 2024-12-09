@@ -62,7 +62,7 @@ jobs:
 
       - name: Create env file
         run: |
-          echo "GITHUB_ACCESS_TOKEN=${{ secrets.GITHUB_TOKEN }}" > .env
+          echo "GITHUB_ACCESS_TOKEN=${{ secrets.GIT_API_KEY }}" > .env
 
       - name: Build with PyInstaller
         run: |
