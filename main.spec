@@ -24,7 +24,9 @@ a = Analysis(
         'PyQt6.QtGui',
         'PyQt6.QtWidgets',
         'PyQt6.uic',
-        'dotenv'
+        'dotenv',
+        'PyQt6.QtWaylandClient',
+        'PyQt6.QtXcbQpa'
     ],
     noarchive=False
 )
