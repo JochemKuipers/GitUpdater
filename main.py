@@ -344,63 +344,58 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def context_menu(self, pos):
-        menu = QtWidgets.QMenu()
-        delete_action = menu.addAction("Delete Repository")
-        change_name_action = menu.addAction("Change Repository Name")
-        change_url_action = menu.addAction("Change Repository URL")
-        chage_local_path_action = menu.addAction("Change Local Path")
-        action = menu.exec(pos)
-        if action == delete_action:  # Delete action
-            confirm = QtWidgets.QMessageBox()
-            confirm.setWindowTitle("Delete Repository")
-            confirm.setText("Are you sure you want to delete this repository?")
-            confirm.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-            confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
-            confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-            if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                repo_name = self.sender().objectName()
-                self.delete_repo(repo_name)
-        elif action == change_name_action:  # Change name action
-            new_name, ok = QtWidgets.QInputDialog.getText(self, title="Change Repository Name", label="Enter the new name:", text=self.sender().objectName())
-            if ok:
-                confirm = QtWidgets.QMessageBox()
-                confirm.setWindowTitle("Change Repository Name")
-                confirm.setText("Are you sure you want to change the name of this repository?")
-                confirm.setStandardButtons(
-                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-                confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
-                confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-                if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                    objectName = self.sender().objectName()
-                    self.change_repo_name(self, objectName, new_name)
-        elif action == change_url_action:  # Change URL action
-            new_url, ok = QtWidgets.QInputDialog.getText(self, "Change Repository URL", "Enter the new URL:", text=self.sender().toolTip())
-            if ok:
-                confirm = QtWidgets.QMessageBox()
-                confirm.setWindowTitle("Change Repository URL")
-                confirm.setText("Are you sure you want to change the URL of this repository?")
-                confirm.setStandardButtons(
-                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-                confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
-                confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-                if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                    self.change_repo_url(self.sender().toolTip(), new_url)
-        elif action == chage_local_path_action:  # Change local path action
-            new_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Change Local Path", "Pick a new local path:", QtWidgets.QFileDialog.Option.ShowDirsOnly)
-            if new_path:
-                confirm = QtWidgets.QMessageBox()
-                confirm.setWindowTitle("Change Local Path")
-                confirm.setText("Are you sure you want to change the local path of this repository?")
-                confirm.setStandardButtons(
-                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-                confirm.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
-                confirm.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-                if confirm.exec() == QtWidgets.QMessageBox.StandardButton.Yes:
-                    self.change_local_path(self.sender().text(), new_path)
-        else:
-            return
+        menu = QtWidgets.QMenu(self)
+        button = self.sender()
+        repo_name = button.objectName()
 
+        # Change Name
+        change_name = QtGui.QAction("Change Name", self)
+        change_name.triggered.connect(lambda: self.change_repo_name_dialog(repo_name))
+        menu.addAction(change_name)
 
+        # Change Path
+        change_path = QtGui.QAction("Change Path", self)
+        change_path.triggered.connect(lambda: self.change_repo_path_dialog(repo_name))
+        menu.addAction(change_path)
+
+        # Change URL 
+        change_url = QtGui.QAction("Change URL", self)
+        change_url.triggered.connect(lambda: self.change_repo_url_dialog(repo_name))
+        menu.addAction(change_url)
+
+        # Delete
+        delete = QtGui.QAction("Delete", self)
+        delete.triggered.connect(lambda: self.delete_repo_dialog(repo_name))
+        menu.addAction(delete)
+
+        menu.exec(QtGui.QCursor.pos())
+    
+    def change_repo_name_dialog(self, name):
+        new_name, ok = QtWidgets.QInputDialog.getText(self, "Change Repository Name", "Enter new name:", text=name)
+        if ok:
+            self.change_repo_name(name, new_name)
+            
+    def change_repo_path_dialog(self, name):
+        new_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
+        if new_path:
+            self.change_local_path(name, new_path)
+            
+    def change_repo_url_dialog(self, name):
+        new_url, ok = QtWidgets.QInputDialog.getText(self, "Change Repository URL", "Enter new URL:")
+        if ok:
+            self.change_repo_url(name, new_url)
+            
+    def delete_repo_dialog(self, name):
+        result = QtWidgets.QMessageBox.question(
+            self,
+            "Delete Repository",
+            f"Are you sure you want to delete {name}?",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.No
+        )
+        if result == QtWidgets.QMessageBox.StandardButton.Yes:
+            self.delete_repo(name)
+            
     def change_local_path(self, name, new_path):
         try:
             with open('data/repos.json', 'r+', encoding='utf-8') as f:
