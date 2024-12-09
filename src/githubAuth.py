@@ -21,20 +21,11 @@ def timed_cache(seconds: int):
 
 
 def clean_github_link(link: str) -> str:
-    """
-    Removes everything from a GitHub link after the repository name.
-
-    Args:
-        link (str): The GitHub URL.
-
-    Returns:
-        str: The cleaned GitHub URL.
-    """
     pattern = r"(https://github\.com/[^/]+/[^/]+)/?.*"
     match = re.match(pattern, link)
     return match.group(1) if match else link
 
-def arch_variants(arch):
+def arch_variants(arch: str) -> list:
     arch = arch.lower()
     if arch in ['32bit', '32-bit', 'x86', 'i386', 'i686']:
         return ['32bit', '32-bit', 'x86', 'i386', 'i686']
