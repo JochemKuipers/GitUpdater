@@ -1,5 +1,6 @@
 import json
 import sys
+import os
 from PyQt6 import QtWidgets, uic, QtCore, QtGui
 from datetime import datetime
 import logging
@@ -31,26 +32,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.threads = []  # Keep track of threads
         self.workers = []  # Keep track of workers
         
-        try:
-            with open('data/config.json', 'r') as f:
-                self.config = json.load(f)
-        except FileNotFoundError:
+        config_path = 'data/config.json'
+        repos_path = 'data/repos.json'
+
+        if not os.path.exists(config_path):
             logging.info("Creating config.json")
-            template = open('src/config_template.json', 'r')
-            with open('data/config.json', 'w') as f:
-                f.write(template.read())
-                f.close()
-            with open('data/config.json', 'r') as f:
-                self.config = json.load(f)
-        try:
-            with open('data/repos.json', 'r') as f:
-                self.repos = json.load(f)
-        except FileNotFoundError:
+            with open('src/config_template.json', 'r') as template:
+                with open(config_path, 'w') as f:
+                    f.write(template.read())
+        with open(config_path, 'r') as f:
+            self.config = json.load(f)
+
+        if not os.path.exists(repos_path):
             logging.info("Creating repos.json")
-            with open('data/repos.json', 'w') as f:
+            with open(repos_path, 'w') as f:
                 f.write('{"repos": []}')
-            with open('data/repos.json', 'r') as f:
-                self.repos = json.load(f)
                 
         
             
