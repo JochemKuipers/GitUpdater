@@ -7,6 +7,15 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
+
+def get_config_dir():
+    """Get user config directory"""
+    config_dir = os.path.join(
+        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
+        'gitupdater'
+    )
+    os.makedirs(config_dir, exist_ok=True)
+    return config_dir
 class SettingsWindow(QtWidgets.QMainWindow):
     def __init__(self, assets):
         super().__init__()
@@ -18,22 +27,27 @@ class SettingsWindow(QtWidgets.QMainWindow):
         self.save_button.clicked.connect(self.save_settings)
         self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
         self.assets = assets
+        self.config_path = os.path.join(get_config_dir(), 'config.json')
+        self.repos_path = os.path.join(get_config_dir(), 'repos.json')
 
     def load_settings(self):
         while self.tab_widget.count() > 0:
             self.tab_widget.removeTab(0)
         try:
-            if not os.path.exists('data/config.json'):
+            if not os.path.exists(self.config_path):
                 logging.info("Creating config.json")
-                with open('data/config.json', 'w') as f:
-                    json.dump({"categories": []}, f)
+                os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+                with open(self.config_path, 'w') as f:
+                    with open(os.path.join(os.path.dirname(__file__), 'config_template.json'), 'r') as template:
+                        json.dump(json.load(template), f)
                     
-            if not os.path.exists('data/repos.json'):
+            if not os.path.exists(self.repos_path):
                 logging.info("Creating repos.json")
-                with open('data/repos.json', 'w') as f:
+                os.makedirs(os.path.dirname(self.repos_path), exist_ok=True)
+                with open(self.repos_path, 'w') as f:
                     json.dump({"repos": []}, f)
                     
-            with open('data/config.json', 'r') as f:
+            with open(self.config_path, 'r') as f:
                 logging.info("Loading settings")
                 config = json.load(f)
 
@@ -84,7 +98,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
         try:
             logging.info("Saving settings")
             # Save general settings to config.json
-            with open('data/config.json', 'r+') as f:
+            with open(self.config_path, 'r+') as f:
                 config = json.load(f)
                 
                 for category in config['categories']:
@@ -110,7 +124,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
                 f.truncate()
 
             # Save repository settings to repos.json
-            with open('data/repos.json', 'r+') as f:
+            with open(self.repos_path, 'r+') as f:
                 repos_data = json.load(f)
                 
                 for repo in repos_data['repos']:
@@ -140,7 +154,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
     def _load_repo_category(self, category):
         logging.info("Loading repository settings")
         try:
-            with open('data/repos.json', 'r') as f:
+            with open(self.repos_path, 'r') as f:
                 repos_data = json.load(f)
             if repos_data['repos']:
                 repo_tab = QtWidgets.QWidget()

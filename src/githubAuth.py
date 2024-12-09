@@ -1,3 +1,4 @@
+import sys
 import dotenv
 import platform
 import re
@@ -6,7 +7,7 @@ from PyQt6 import QtWidgets
 import time
 from functools import lru_cache
 import logging
-
+import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
@@ -36,26 +37,39 @@ def arch_variants(arch: str) -> list:
     else:
         return [arch]        
 
+def resource_path(relative_path):
+    """Get absolute path to resource"""
+    if hasattr(sys, '_MEIPASS'):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 class GitHub():
     def __init__(self):
+        # Load env from executable directory or current directory
+        env_path = resource_path('.env')
         try:
-            dotenv.load_dotenv()
-        except FileNotFoundError:
-            logger.error(".env file not found.")
-            return
-
-        self.auth = Auth.Token(dotenv.get_key(".env", "GITHUB_ACCESS_TOKEN"))
-        if not self.auth:
-            logger.error("GitHub access token not found.")
-            return
-        self.g = Github(auth=self.auth)
-
-        self.g.get_user().login
-        
-        self.current_os = platform.system().lower()
-        logger.info(f"OS: {self.current_os}")
-        self.current_arch = platform.machine().lower()
-        logger.info(f"Architecture: {self.current_arch}")
+            if not dotenv.load_dotenv(env_path):
+                raise FileNotFoundError(".env file not found")
+                
+            token = os.getenv("GITHUB_ACCESS_TOKEN")
+            if not token:
+                raise ValueError("GitHub access token not found in .env")
+                
+            self.auth = Auth.Token(token)
+            self.g = Github(auth=self.auth)
+            # Test connection
+            self.g.get_user().login
+            
+            self.current_os = platform.system().lower()
+            logger.info(f"OS: {self.current_os}")
+            self.current_arch = platform.machine().lower()
+            logger.info(f"Architecture: {self.current_arch}")
+            
+        except Exception as e:
+            logger.error(f"GitHub initialization failed: {e}")
+            raise
     
     @timed_cache(300)
     def get_latest_release_url(self, repo_url):

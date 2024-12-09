@@ -21,32 +21,67 @@ import src.updater
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
 
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+def get_config_dir():
+    """Get user config directory"""
+    config_dir = os.path.join(
+        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
+        'gitupdater'
+    )
+    os.makedirs(config_dir, exist_ok=True)
+    return config_dir
+
+def get_config_path(filename):
+    """Get full path for a config file"""
+    return os.path.join(get_config_dir(), filename)
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         logging.info("Starting GitUpdater")
-        uic.loadUi("components/mainwindow.ui", self)  # type: ignore
+        try:
+            ui_file = resource_path("components/mainwindow.ui")
+            if not os.path.exists(ui_file):
+                raise FileNotFoundError("UI file not found")
+            uic.loadUi(ui_file, self)
+        except FileNotFoundError as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error loading UI: {e}")
+            logging.error(f"Error loading UI: {e}")
+            sys.exit(1)
         
         self.setWindowTitle("GitUpdater")
         
         self.threads = []  # Keep track of threads
         self.workers = []  # Keep track of workers
         
-        config_path = 'data/config.json'
-        repos_path = 'data/repos.json'
+        try:
+            self.config_path = get_config_path('config.json')
+            self.repos_path = get_config_path('repos.json')
+            self.template_path = resource_path('src/config_template.json')
 
-        if not os.path.exists(config_path):
-            logging.info("Creating config.json")
-            with open('src/config_template.json', 'r') as template:
-                with open(config_path, 'w') as f:
-                    f.write(template.read())
-        with open(config_path, 'r') as f:
-            self.config = json.load(f)
-
-        if not os.path.exists(repos_path):
-            logging.info("Creating repos.json")
-            with open(repos_path, 'w') as f:
-                f.write('{"repos": []}')
+            if not os.path.exists(self.config_path):
+                logging.info("Creating config.json in user config dir")
+                if not os.path.exists(self.template_path):
+                    raise FileNotFoundError("Config template not found")
+                with open(self.template_path, 'r') as template:
+                    with open(self.config_path, 'w') as f:
+                        f.write(template.read())
+            
+            with open(self.config_path, 'r') as f:
+                self.config = json.load(f)
+                        
+            if not os.path.exists(self.repos_path):
+                logging.info("Creating repos.json in user config dir")
+                with open(self.repos_path, 'w') as f:
+                    f.write('{"repos": []}')
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Error setting up config: {e}")
+            logging.error(f"Error setting up config: {e}")
+            sys.exit(1)
                 
         
             
@@ -110,7 +145,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 name = parts[3] + '/' + parts[4]
 
-                with open('data/repos.json', 'r+', encoding='utf-8') as f:
+                with open(self.repos_path, 'r+', encoding='utf-8') as f:
                     repo_data = json.load(f)
                     repos = repo_data.get('repos', [])
                     for repo in repos:
@@ -129,7 +164,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             except FileNotFoundError:
                 logging.info("Creating repos.json")
-                with open('data/repos.json', 'w', encoding='utf-8') as f:
+                with open(self.repos_path, 'w', encoding='utf-8') as f:
                     json.dump({"repos": [{"name": name, "url": github_link, "path": dialog_data['path'], "correct_package_name": "", "version": "", "auto_update": dialog_data['auto_update']}]}, f, indent=4)
 
             except ValueError as e:
@@ -241,7 +276,7 @@ class MainWindow(QtWidgets.QMainWindow):
             
         self.settingsButton.setEnabled(False)
             
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
+        with open(self.repos_path, 'r+', encoding='utf-8') as f:
             data = json.load(f)
             git = GitHub()
             repos = data.get('repos', [])
@@ -305,7 +340,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
 
         # Update repos.json
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
+        with open(self.repos_path, 'r+', encoding='utf-8') as f:
             data = json.load(f)
             for repo in data['repos']:
                 if repo['name'] == result['name']:
@@ -323,7 +358,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error(f"Error updating {name}: {e}")
             return
         
-        with open('data/repos.json', 'r+', encoding='utf-8') as f:
+        with open(self.repos_path, 'r+', encoding='utf-8') as f:
             data = json.load(f)
             repo = [repo for repo in data.get('repos', []) if repo['name'] == name][0]
             repo['version'] = version
@@ -339,7 +374,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Updating repository buttons")
         if self.repoButtonsScrollAreaContentsLayout.count() > 0:
             self.clear_layout(self.repoButtonsScrollAreaContentsLayout)
-        with open('data/repos.json', 'r', encoding='utf-8') as f:
+        with open(self.repos_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             repos = data.get('repos', [])
             for repo in repos:
@@ -409,7 +444,7 @@ class MainWindow(QtWidgets.QMainWindow):
             
     def change_local_path(self, name, new_path):
         try:
-            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+            with open(self.repos_path, 'r+', encoding='utf-8') as f:
                 data = json.load(f)
                 repos = data.get('repos', [])
                 for repo in repos:
@@ -429,7 +464,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_repo_name(self, old_name, new_name):
         try:
-            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+            with open(self.repos_path, 'r+', encoding='utf-8') as f:
                 data = json.load(f)
                 repos = data.get('repos', [])
                 for repo in repos:
@@ -448,7 +483,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_repo_url(self, name, new_url):
         try:
-            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+            with open(self.repos_path, 'r+', encoding='utf-8') as f:
                 data = json.load(f)
                 repos = data.get('repos', [])
                 for repo in repos:
@@ -468,7 +503,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def delete_repo(self, name):
         try:
-            with open('data/repos.json', 'r+', encoding='utf-8') as f:
+            with open(self.repos_path, 'r+', encoding='utf-8') as f:
                 data = json.load(f)
                 repos = data.get('repos', [])
                 for repo in repos:
