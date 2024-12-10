@@ -38,13 +38,14 @@ jobs:
             qtwayland6
             libgl1-mesa-dri
             libglx-mesa0
+            libsystemd-dev
             python3-dev
           version: 1.0
 
       - name: Set Environment Variables
         run: |
           echo "QT_QPA_PLATFORM=wayland" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Install Python dependencies
         run: |
@@ -79,5 +80,5 @@ jobs:
         uses: actions/upload-artifact@v4.4.3
         with:
           name: GitUpdater-${{ github.ref_name }}-linux
-          path: dist/GitUpdater  # Point directly to executable
+          path: dist/GitUpdater # Point directly to executable
           retention-days: 7
