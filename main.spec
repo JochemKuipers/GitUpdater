@@ -25,8 +25,7 @@ a = Analysis(
         'PyQt6.QtWidgets',
         'PyQt6.uic',
         'dotenv',
-        'PyQt6.QtWaylandClient',
-        'PyQt6.QtXcbQpa'
+        'PyQt6.QtWaylandClient'  # Remove XCB, keep Wayland
     ],
     noarchive=False
 )

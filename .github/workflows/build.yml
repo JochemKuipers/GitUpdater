@@ -29,29 +29,22 @@ jobs:
         with:
           packages: >-
             pkg-config
-            libsystemd-dev
-            libsystemd0
-            libxcb-cursor0
-            libxcb1
-            libxcb-glx0
-            libxcb-icccm4
-            libxcb-image0
-            libxcb-keysyms1
-            libxcb-randr0
-            libxcb-render-util0
-            libxcb-render0
-            libxcb-shape0
-            libxcb-shm0
-            libxcb-sync1
-            libxcb-util1
-            libxcb-xfixes0
-            libxcb-xinerama0
-            libxcb-xkb1
+            libwayland-client0
+            libwayland-cursor0
+            libwayland-egl1
+            libwayland-server0
+            libqt6waylandclient6
+            libqt6waylandegl6
+            qtwayland6
+            libgl1-mesa-dri
+            libglx-mesa0
             python3-dev
           version: 1.0
 
-      - name: Set PKG_CONFIG_PATH
-        run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+      - name: Set Environment Variables
+        run: |
+          echo "QT_QPA_PLATFORM=wayland" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Install Python dependencies
         run: |
@@ -68,7 +61,8 @@ jobs:
         run: |
           pyinstaller main.spec --clean
           cd dist
-          zip -r GitUpdater-${{ github.ref_name }}-linux.zip GitUpdater/
+          # Zip single executable file directly
+          zip GitUpdater-${{ github.ref_name }}-linux.zip GitUpdater
 
       - name: Create Release
         uses: softprops/action-gh-release@v2.1.0
@@ -85,5 +79,5 @@ jobs:
         uses: actions/upload-artifact@v4.4.3
         with:
           name: GitUpdater-${{ github.ref_name }}-linux
-          path: dist/GitUpdater/
+          path: dist/GitUpdater  # Point directly to executable
           retention-days: 7
