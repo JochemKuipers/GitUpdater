@@ -72,7 +72,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.updatesScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.updatesScrollAreaContents)
         
         self.refreshButton = self.findChild(QtWidgets.QPushButton, "refreshButton")
-        self.refreshButton.clicked.connect(lambda: self.update_updates())
+        self.refreshButton.clicked.connect(lambda: self.check_for_updates())
 
         self.addRepoButton = self.findChild(QtWidgets.QPushButton, "addRepoButton")
         self.addRepoButton.clicked.connect(self.open_add_repo_dialog)
@@ -94,7 +94,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error(f"Error loading repositories: {e}")
         
         if self.get_setting('check_updates', True):
-            self.update_updates()
+            self.check_for_updates()
                 
         if self.get_setting('start_minimized', True):
             self.hide()
@@ -194,30 +194,46 @@ class MainWindow(QtWidgets.QMainWindow):
                     return settings[setting_name][0].get('value', value)
         raise ValueError(f"Setting {setting_name} not found")
         
-    def update_updates(self):
-        try:
-            with open(self.repos_path, 'r+', encoding='utf-8') as f:
-                data = json.load(f)
-                repos = data.get('repos', [])
-                for repo in repos:
-                    try:
-                        latest_release = self.git.get_latest_release_url(repo['url'])
-                        self.assets[repo['name']] = latest_release.get_assets()
-                        asset, correct_package_name = self.git.find_correct_asset_in_list(
-                            latest_release,
-                            self, 
-                            repo.get('correct_package_name')
-                        )
-                        
-                        if asset:
-                            version = self.git.get_asset_version(asset=asset, page=latest_release)
-                            old_version = repo['version']
-                            if old_version == version:
-                                continue
-                            if old_version == "":
-                                old_version = "N/A"
+    class UpdateWorker(QtCore.QObject):
+        # Signals
+        update_found = QtCore.pyqtSignal(dict)  # Emits update data when found
+        finished = QtCore.pyqtSignal()  # Emits when all updates checked
+        error = QtCore.pyqtSignal(str)  # Emits error messages
+        
+        def __init__(self, git, repos_path, assets):
+            super().__init__()
+            self.git = git
+            self.repos_path = repos_path
+            self.assets = assets
+
+        def run(self):
+            try:
+                with open(self.repos_path, 'r+', encoding='utf-8') as f:
+                    data = json.load(f)
+                    repos = data.get('repos', [])
+                    
+                    for repo in repos:
+                        try:
+                            latest_release = self.git.get_latest_release_url(repo['url'])
+                            self.assets[repo['name']] = latest_release.get_assets()
+                            
+                            asset, correct_package_name = self.git.find_correct_asset_in_list(
+                                latest_release,
+                                self,
+                                repo.get('correct_package_name')
+                            )
+                            
+                            if asset:
+                                version = self.git.get_asset_version(asset=asset, page=latest_release)
+                                old_version = repo['version']
                                 
-                                self.update_updates_ui({
+                                if old_version == version:
+                                    continue
+                                    
+                                if old_version == "":
+                                    old_version = "N/A"
+                                
+                                update_data = {
                                     "name": repo['name'],
                                     "old_version": old_version,
                                     "new_version": version,
@@ -225,26 +241,58 @@ class MainWindow(QtWidgets.QMainWindow):
                                     "asset_url": asset.browser_download_url,
                                     "path": repo['path'],
                                     "correct_package_name": correct_package_name
-                                })
+                                }
+                                
+                                self.update_found.emit(update_data)
                                 
                                 if correct_package_name:
                                     sani = self.sanitize_package_name(correct_package_name)
                                     repo['correct_package_name'] = sani
-                            f.seek(0)
-                            json.dump(data, f, indent=4)
-                            f.truncate()
-                    except Exception as e:
-                        logging.error(f"Error updating {repo['name']}: {e}")
-                self.updatesScrollAreaContentsLayout.addStretch()
-        except Exception as e:
-            logging.error(f"Error updating updates: {e}")
-            
-    def sanitize_package_name(package_name: str) -> str:
-        """Replace version number in package name with *"""
-        import re
-        # Match version numbers like 1.2.3, 1.2.3-alpha etc
-        version_pattern = re.compile(r'\d+(\.\d+)+(-\w+)?')
-        return version_pattern.sub('*', package_name)
+                                    
+                                f.seek(0)
+                                json.dump(data, f, indent=4)
+                                f.truncate()
+                                
+                        except Exception as e:
+                            self.error.emit(f"Error updating {repo['name']}: {str(e)}")
+                            logging.error(f"Error updating {repo['name']}: {e}")
+                            
+            except Exception as e:
+                self.error.emit(f"Error updating updates: {str(e)}")
+                logging.error(f"Error updating updates: {e}")
+                
+            self.finished.emit()
+
+        @staticmethod
+        def sanitize_package_name(package_name: str) -> str:
+            """Replace version number in package name with *"""
+            import re
+            version_pattern = re.compile(r'\d+(\.\d+)+(-\w+)?')
+            return version_pattern.sub('*', package_name)
+        
+    def check_for_updates(self):
+        if self.updatesScrollAreaContentsLayout.count() > 0:
+            self.clear_layout(self.updatesScrollAreaContentsLayout)
+        # Create thread and worker
+        self.update_thread = QtCore.QThread()
+        self.update_worker = self.UpdateWorker(self.git, self.repos_path, self.assets)
+        
+        # Move worker to thread
+        self.update_worker.moveToThread(self.update_thread)
+        
+        # Connect signals
+        self.update_thread.started.connect(self.update_worker.run)
+        self.update_worker.finished.connect(self.update_thread.quit)
+        self.update_worker.finished.connect(self.update_worker.deleteLater)
+        self.update_worker.finished.connect(self.updatesScrollAreaContentsLayout.addStretch)
+        self.update_thread.finished.connect(self.update_thread.deleteLater)
+        
+        self.update_worker.update_found.connect(self.update_updates_ui)
+        self.update_worker.error.connect(lambda msg: logging.error(msg))
+        
+        # Start thread
+        self.update_thread.start()
+        
         
     def update_updates_ui(self, data):
         if data:
