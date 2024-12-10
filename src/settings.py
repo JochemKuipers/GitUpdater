@@ -16,6 +16,11 @@ def get_config_dir():
     )
     os.makedirs(config_dir, exist_ok=True)
     return config_dir
+
+def get_config_path(filename):
+    """Get full path for a config file"""
+    return os.path.join(get_config_dir(), filename)
+
 class SettingsWindow(QtWidgets.QMainWindow):
     def __init__(self, assets):
         super().__init__()
@@ -27,8 +32,8 @@ class SettingsWindow(QtWidgets.QMainWindow):
         self.save_button.clicked.connect(self.save_settings)
         self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
         self.assets = assets
-        self.config_path = os.path.join(get_config_dir(), 'config.json')
-        self.repos_path = os.path.join(get_config_dir(), 'repos.json')
+        self.config_path = get_config_path('config.json')
+        self.repos_path = get_config_path('repos.json')
 
     def load_settings(self):
         while self.tab_widget.count() > 0:
