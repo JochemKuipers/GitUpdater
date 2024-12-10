@@ -33,10 +33,10 @@ source .venv/bin/activate  # On Linux/Mac
 .venv\Scripts\activate  # On Windows
 
 # Install dependencies
-pip install -r [requirements.txt](http://_vscodecontentref_/0)
+pip install -r ./requirements.txt
 
 # Run the application
-python [main.py](http://_vscodecontentref_/1)
+python ./main.py
 ```
 
 ## Configuration
