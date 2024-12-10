@@ -33,11 +33,29 @@ def get_config_path(filename):
     """Get full path for a config file"""
     return os.path.join(get_config_dir(), filename)
 
+def resource_path(relative_path):
+    """Get absolute path to resource for both dev and packaged versions"""
+    if hasattr(sys, '_MEIPASS'):
+        # Running in PyInstaller bundle
+        return os.path.join(sys._MEIPASS, relative_path)
+    # Running in development
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         logging.info("Starting GitUpdater")
-        uic.loadUi("components/mainwindow.ui", self)  # type: ignore
+        
+        # Load UI file using resource path
+        ui_file = resource_path('components/mainwindow.ui')
+        if not os.path.exists(ui_file):
+            raise FileNotFoundError(f"UI file not found: {ui_file}")
+            
+        try:
+            uic.loadUi(ui_file, self)
+        except Exception as e:
+            logging.error(f"Error loading UI: {e}")
+            raise
         
         self.setWindowTitle("GitUpdater")
         
