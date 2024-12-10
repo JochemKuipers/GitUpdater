@@ -9,8 +9,7 @@ A PyQt6-based application that automatically tracks and updates software from Gi
 - OS and architecture-specific downloads
 - System tray integration
 - Custom update paths
-- Auto-update option per repository
-- Dark theme UI
+- Auto-update option per repository (WIP)
 
 ## Installation
 
