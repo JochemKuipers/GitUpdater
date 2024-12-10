@@ -109,11 +109,14 @@ class SettingsWindow(QtWidgets.QMainWindow):
                             setting = setting_list[0]
                             widget = self.setting_inputs['General']['widgets'].get(setting_key)
                             if widget:
-                                if isinstance(widget, QtWidgets.QCheckBox):
-                                    setting['value' if 'value' in setting else 'default'] = widget.isChecked()
-                                    
+                                if isinstance(widget, QtWidgets.QCheckBox):                                    
                                     if setting_key == 'start_on_boot':
-                                        self.manage_startup_service(widget.isChecked())
+                                        old_value = setting.get('value', False)
+                                        new_value = widget.isChecked()
+                                        if old_value != new_value:
+                                            self.manage_startup_service(new_value)
+                                    else:
+                                        setting['value'] = widget.isChecked()
                                 elif isinstance(widget, QtWidgets.QComboBox):
                                     setting['value'] = widget.currentText()
                                 else:
@@ -179,7 +182,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
                         'path': ('Path', 'path'),
                         'url': ('URL', 'url'),
                         'correct_package_name': ('Correct Package Name', 'select', asset_options),  # Pass formatted options
-                        'version': ('Version', 'text'),
+                        'version': ('Installed Version', 'text'),
                         'auto_update': ('Auto Update', 'checkbox')
                     }
 

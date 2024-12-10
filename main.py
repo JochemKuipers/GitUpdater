@@ -40,57 +40,31 @@ def get_config_path(filename):
     return os.path.join(get_config_dir(), filename)
 
 class MainWindow(QtWidgets.QMainWindow):
-    update_triggered = QtCore.pyqtSignal()  # New signal
-
     def __init__(self):
         super().__init__()
         logging.info("Starting GitUpdater")
-        try:
-            ui_file = resource_path("components/mainwindow.ui")
-            if not os.path.exists(ui_file):
-                raise FileNotFoundError("UI file not found")
-            uic.loadUi(ui_file, self)
-        except FileNotFoundError as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Error loading UI: {e}")
-            logging.error(f"Error loading UI: {e}")
-            sys.exit(1)
+        uic.loadUi("components/mainwindow.ui", self)  # type: ignore
         
         self.setWindowTitle("GitUpdater")
         
-        self.pending_updates = []
-        self.update_mutex = QtCore.QMutex()
-        self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.process_pending_updates)
-        self.update_timer.start(100)  # Process updates every 100ms
+        self.config_path = get_config_path('config.json')
+        self.repos_path = get_config_path('repos.json')
 
-        
-        self.threads = []  # Keep track of threads
-        self.workers = []  # Keep track of workers
-        
-        try:
-            self.config_path = get_config_path('config.json')
-            self.repos_path = get_config_path('repos.json')
-            self.template_path = resource_path('src/config_template.json')
+        if not os.path.exists(self.config_path):
+            logging.info("Creating config.json")
+            with open('src/config_template.json', 'r') as template:
+                with open(self.config_path, 'w') as f:
+                    f.write(template.read())
+        with open(self.config_path, 'r') as f:
+            self.config = json.load(f)
 
-            if not os.path.exists(self.config_path):
-                logging.info("Creating config.json in user config dir")
-                if not os.path.exists(self.template_path):
-                    raise FileNotFoundError("Config template not found")
-                with open(self.template_path, 'r') as template:
-                    with open(self.config_path, 'w') as f:
-                        f.write(template.read())
+        if not os.path.exists(self.repos_path):
+            logging.info("Creating repos.json")
+            with open(self.repos_path, 'w') as f:
+                f.write('{"repos": []}')
+                
+        self.git = GitHub()
             
-            with open(self.config_path, 'r') as f:
-                self.config = json.load(f)
-                        
-            if not os.path.exists(self.repos_path):
-                logging.info("Creating repos.json in user config dir")
-                with open(self.repos_path, 'w') as f:
-                    f.write('{"repos": []}')
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Error setting up config: {e}")
-            logging.error(f"Error setting up config: {e}")
-            sys.exit(1)           
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
         self.repoButtonsScrollAreaContentsLayout = QtWidgets.QVBoxLayout(self.repoButtonsScrollAreaContents)
@@ -120,49 +94,13 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error(f"Error loading repositories: {e}")
         
         if self.get_setting('check_updates', True):
-            try:
-                self.update_updates()
-            except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating repositories: {e}")
-                logging.error(f"Error updating repositories: {e}")
+            self.update_updates()
                 
         if self.get_setting('start_minimized', True):
             self.hide()
         else: 
             self.show()
         self.shownbefore = False
-
-        # Initialize thread-safe components
-        self.pending_updates = []
-        self.update_mutex = QtCore.QMutex()
-        self.update_worker = MainWindow.UpdateWorker()
-        self.update_thread = QtCore.QThread()
-        self.update_worker.moveToThread(self.update_thread)
-        
-        # Connect signals
-        self.update_triggered.connect(self.update_worker.process_updates)
-        self.update_worker.update_completed.connect(self.handle_update_completed)
-        
-        # Start thread
-        self.update_thread.start()
-        
-    def handle_update_completed(self):
-        """Handle completion of update processing"""
-        logging.info("Update processing completed")
-        self.settingsButton.setEnabled(True)
-        self.updatesScrollAreaContentsLayout.addStretch()
-       
-
-    def process_pending_updates(self):
-        with QtCore.QMutexLocker(self.update_mutex):
-            while self.pending_updates:
-                update_func = self.pending_updates.pop(0)
-                update_func()
-
-    def queue_update(self, func):
-        with QtCore.QMutexLocker(self.update_mutex):
-            self.pending_updates.append(func)
-            self.update_triggered.emit()
 
     def open_settings(self):
         if not isinstance(self.settingswindow, SettingsWindow):
@@ -214,7 +152,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.deleteLater()
             
     def closeEvent(self, event):
-        if self.get_setting('tray_on_close', True):
+        if self.get_setting('minimize_to_tray', True):
             self.minimizeEvent(event)
         else:
             result = QtWidgets.QMessageBox.question(
@@ -256,154 +194,72 @@ class MainWindow(QtWidgets.QMainWindow):
                     return settings[setting_name][0].get('value', value)
         raise ValueError(f"Setting {setting_name} not found")
         
-    class UpdateWorker(QtCore.QObject):
-        finished = QtCore.pyqtSignal()
-        progress = QtCore.pyqtSignal(object)
-        assets_updated = QtCore.pyqtSignal(dict)  # New signal
-        error = QtCore.pyqtSignal(str)
-        update_completed = QtCore.pyqtSignal()
-
-        def __init__(self, repos=None, git=None, current_assets=None):
-            super().__init__()
-            self.repos = repos
-            self.git = git
-            self.assets = current_assets or {}
-            self.mutex = QtCore.QMutex()
-            self.updates = []
-            
-        def process_repo(self, repo):
-            try:
-                latest_release = self.git.get_latest_release_url(repo['url'])
-                self.assets[repo['name']] = latest_release.get_assets()
-                asset, correct_package_name = self.git.find_correct_asset_in_list(latest_release, None, repo.get('correct_package_name'))
-                
-                if asset:
-                    version = self.git.get_asset_version(asset=asset, page=latest_release)
-                    old_version = repo['version']
-                    if old_version == version:
-                        return None
-                    if old_version == "":
-                        old_version = "N/A"
-                        
-                    result = {
-                        'name': repo['name'],
-                        'old_version': old_version,
-                        'new_version': version,
-                        'asset_name': asset.name,
-                        'asset_url': asset.browser_download_url,
-                        'path': repo['path'],
-                        'updated_at': asset.updated_at.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
-                        'correct_package_name': correct_package_name
-                    }
-                    return result
-            except Exception as e:
-                logging.error(f"Error updating {repo['name']}: {str(e)}")
-                self.error.emit(f"Error updating {repo['name']}: {str(e)}")
-                return None
-
-        def run(self):
-            BATCH_SIZE = 5
-            with ThreadPoolExecutor(max_workers=BATCH_SIZE) as executor:
-                for result in executor.map(self.process_repo, self.repos):
-                    if result:
-                        self.progress.emit(result)
-            self.assets_updated.emit(self.assets)  # Emit updated assets
-            self.finished.emit()
-
-        @QtCore.pyqtSlot()
-        def process_updates(self):
-            with QtCore.QMutexLocker(self.mutex):
-                while self.updates:
-                    update_func = self.updates.pop(0)
-                    try:
-                        update_func()
-                    except Exception as e:
-                        logging.error(f"Error processing update: {e}")
-            self.update_completed.emit()
-
-        def cleanup(self):
-            self.thread().quit()
-
     def update_updates(self):
-        logger.info("Updating repositories")
-        if self.updatesScrollAreaContentsLayout.count() > 0:
-            self.clear_layout(self.updatesScrollAreaContentsLayout)
+        try:
+            with open(self.repos_path, 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                repos = data.get('repos', [])
+                for repo in repos:
+                    try:
+                        latest_release = self.git.get_latest_release_url(repo['url'])
+                        self.assets[repo['name']] = latest_release.get_assets()
+                        asset, correct_package_name = self.git.find_correct_asset_in_list(
+                            latest_release,
+                            self, 
+                            repo.get('correct_package_name')
+                        )
+                        
+                        if asset:
+                            version = self.git.get_asset_version(asset=asset, page=latest_release)
+                            old_version = repo['version']
+                            if old_version == version:
+                                continue
+                            if old_version == "":
+                                old_version = "N/A"
+                                
+                                self.update_updates_ui({
+                                    "name": repo['name'],
+                                    "old_version": old_version,
+                                    "new_version": version,
+                                    "updated_at": asset.updated_at.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+                                    "asset_url": asset.browser_download_url,
+                                    "path": repo['path'],
+                                    "correct_package_name": correct_package_name
+                                })
+                                
+                                if correct_package_name:
+                                    sani = self.sanitize_package_name(correct_package_name)
+                                    repo['correct_package_name'] = sani
+                            f.seek(0)
+                            json.dump(data, f, indent=4)
+                            f.truncate()
+                    except Exception as e:
+                        logging.error(f"Error updating {repo['name']}: {e}")
+                self.updatesScrollAreaContentsLayout.addStretch()
+        except Exception as e:
+            logging.error(f"Error updating updates: {e}")
             
-        self.settingsButton.setEnabled(False)
-            
-        with open(self.repos_path, 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            git = GitHub()
-            repos = data.get('repos', [])
-
-            # Create and store thread/worker
-            thread = QtCore.QThread()
-            worker = self.UpdateWorker(repos, git, self.assets)
-            
-            # Store references to prevent GC
-            self.threads.append(thread)
-            self.workers.append(worker)
-            
-            worker.moveToThread(thread)
-
-            # Connect signals
-            thread.started.connect(worker.run)
-            worker.finished.connect(lambda: self.cleanup_thread(thread, worker))
-            worker.finished.connect(self.on_update_worker_finished)
-            worker.progress.connect(self.handle_update_progress)
-            worker.assets_updated.connect(self.update_assets)
-            worker.error.connect(lambda msg: QtWidgets.QMessageBox.warning(self, "Error", msg))
-
-            thread.start()
-    def on_update_worker_finished(self):
-        self.settingsButton.setEnabled(True)
-        self.updatesScrollAreaContentsLayout.addStretch()
-
-    def cleanup_thread(self, thread, worker):
-        """Clean up thread and worker properly"""
-        thread.quit()
-        thread.wait()  # Wait for thread to finish
+    def sanitize_package_name(package_name: str) -> str:
+        """Replace version number in package name with *"""
+        import re
+        # Match version numbers like 1.2.3, 1.2.3-alpha etc
+        version_pattern = re.compile(r'\d+(\.\d+)+(-\w+)?')
+        return version_pattern.sub('*', package_name)
         
-        # Remove from storage
-        if thread in self.threads:
-            self.threads.remove(thread)
-        if worker in self.workers:
-            self.workers.remove(worker)
-
-    @QtCore.pyqtSlot(dict)
-    def update_assets(self, new_assets):
-        """Update assets dictionary with new values"""
-        self.assets.update(new_assets)
-
-    def handle_update_progress(self, result):
-        def make_connection(name, url, path, version):
-            return lambda: self.update_repo(name, url, path, version)
-            
-        updates_frame = UpdatesFrame(
-            label=result['name'],
-            old_version=result['old_version'],
-            new_version=result['new_version'],
-            last_check=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            last_updated=result['updated_at'],
-            tooltip=result['asset_name'],
-            connection=make_connection(result['name'], 
-                                    result['asset_url'], 
-                                    result['path'], 
-                                    result['new_version'])
-        )
-        
-        self.updatesScrollAreaContentsLayout.addWidget(updates_frame)
-
-        # Update repos.json
-        with open(self.repos_path, 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            for repo in data['repos']:
-                if repo['name'] == result['name']:
-                    if result['correct_package_name']:
-                        repo['correct_package_name'] = result['correct_package_name']
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+    def update_updates_ui(self, data):
+        if data:
+            frame = UpdatesFrame(
+                data['name'],
+                data['old_version'],
+                data['new_version'],
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                data['updated_at'],
+                data['correct_package_name'],
+                connection=lambda: self.update_repo(data['name'], data['asset_url'], data['path'], data['new_version'])
+            )
+            self.updatesScrollAreaContentsLayout.addWidget(frame)
+        else:
+            QtWidgets.QMessageBox.information(self, "No Updates", "No updates available.")                       
             
     def update_repo(self, name, url, path, version):
         try:
@@ -426,36 +282,28 @@ class MainWindow(QtWidgets.QMainWindow):
         logging.info(f"Repository {name} updated successfully")
         
     def update_repo_buttons(self):
-        def update():
-            if self.repoButtonsScrollAreaContentsLayout.count() > 0:
-                self.clear_layout(self.repoButtonsScrollAreaContentsLayout)
-            
-            try:
-                with open(self.repos_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    repos = data.get('repos', [])
-                    for repo in repos:
-                        button = ClickableElidedLabel(
-                            repo['name'],
-                            repo['url'],
-                            connection=lambda url=repo['url']: QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
-                        )
-                        button.setObjectName(repo['name'])
-                        button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
-                        button.customContextMenuRequested.connect(
-                            lambda pos, name=repo['name']: self.context_menu(pos, name)
-                        )
-                        self.repoButtonsScrollAreaContentsLayout.addWidget(button)
-            except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "Error", f"Error updating buttons: {e}")
-                logging.error(f"Error updating buttons: {e}")
+        logger.info("Updating repository buttons")
+        if self.repoButtonsScrollAreaContentsLayout.count() > 0:
+            self.clear_layout(self.repoButtonsScrollAreaContentsLayout)
+        with open(self.repos_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            repos = data.get('repos', [])
+            for repo in repos:
+                def make_connection(url):
+                    return lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+                button = ClickableElidedLabel(repo['name'], repo['url'], connection=make_connection(repo['url']))
+                button.setObjectName(repo['name'])
+                button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+                button.customContextMenuRequested.connect(lambda: self.context_menu(QtGui.QCursor.pos()))
+                self.repoButtonsScrollAreaContentsLayout.addWidget(button)
 
-        with QtCore.QMutexLocker(self.update_mutex):
-            self.pending_updates.append(update)
+            self.repoButtonsScrollAreaContentsLayout.addStretch()
 
-    def context_menu(self, pos, repo_name):
+
+    def context_menu(self, pos):
         menu = QtWidgets.QMenu(self)
         button = self.sender()
+        repo_name = button.objectName()
 
         # Change Name
         change_name = QtGui.QAction("Change Name", self)
@@ -590,6 +438,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 child = layout.takeAt(0)
                 if child.widget():
                     child.widget().deleteLater()
+                elif child.layout():
+                    self.clear_layout(child.layout())
         except Exception as e:
             logging.error(f"Error clearing layout: {e}")
             QtWidgets.QMessageBox.warning(self, "Error", f"Error clearing layout: {e}")
