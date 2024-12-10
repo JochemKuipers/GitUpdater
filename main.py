@@ -73,6 +73,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 f.write('{"repos": []}')
                 
         self.git = GitHub()
+        self.git.selector.selection_needed.connect(self.show_package_selection_dialog)
             
 
         self.repoButtonsScrollAreaContents = self.findChild(QtWidgets.QWidget, "repoButtonsScrollAreaContents")
@@ -110,6 +111,42 @@ class MainWindow(QtWidgets.QMainWindow):
         else: 
             self.show()
         self.shownbefore = False
+
+    def show_package_selection_dialog(self, asset_names, title):
+        try:
+            selected_name, ok = QtWidgets.QInputDialog.getItem(
+                self,
+                title,
+                "Multiple packages found. Please select the correct one:",
+                asset_names,
+                0,
+                False
+            )
+            if ok and selected_name:
+                # Directly call handle_selection to avoid signal issues
+                self.git.selector._handle_selection(selected_name)
+                
+        except Exception as e:
+            logging.error(f"Error in package selection dialog: {e}")
+            
+    def handle_package_selection(self, selected_name: str) -> None:
+        """Handle package selection from dialog
+        
+        Args:
+            selected_name: Name of selected asset package
+        """
+        try:
+            # Store selection in GitHub instance
+            self.git.selector.selected_package = selected_name
+            
+            # Signal selection is complete
+            self.git.selector.selection_complete.emit(selected_name)
+            
+            logging.debug(f"Package selected: {selected_name}")
+            
+        except Exception as e:
+            logging.error(f"Error handling package selection: {e}")
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error handling package selection: {e}")
 
     def open_settings(self):
         if not isinstance(self.settingswindow, SettingsWindow):
@@ -256,8 +293,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.update_found.emit(update_data)
                                 
                                 if correct_package_name:
-                                    sani = self.sanitize_package_name(correct_package_name)
-                                    repo['correct_package_name'] = sani
+                                    repo['correct_package_name'] = correct_package_name
                                     
                                 f.seek(0)
                                 json.dump(data, f, indent=4)
