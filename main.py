@@ -15,7 +15,6 @@ from components.trayicon import SystemTrayIcon
 
 from src.githubAuth import GitHub, clean_github_link
 from src.settings import SettingsWindow
-from concurrent.futures import ThreadPoolExecutor
 import src.updater
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
@@ -431,6 +430,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 json.dump(data, f, indent=4)
                 f.truncate()
                 self.update_repo_buttons()
+                
+                # Update the name in the updates frame if present
+                for i in range(self.updatesScrollAreaContentsLayout.count()):
+                    item = self.updatesScrollAreaContentsLayout.itemAt(i)
+                    if item and item.widget() and isinstance(item.widget(), UpdatesFrame):
+                        frame = item.widget()
+                        name_label = frame.findChild(QtWidgets.QLabel, "label")
+                        if name_label and name_label.text() == old_name:
+                            name_label.setText(new_name)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error changing repository name: {e}")
             logging.error(f"Error changing repository: {e}")

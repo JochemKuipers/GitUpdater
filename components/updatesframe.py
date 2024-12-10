@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
+from PyQt6.QtWidgets import QFrame, QLabel, QPushButton, QHBoxLayout
 
 class UpdatesFrame(QFrame):
     def __init__(self, label: str, old_version: str, new_version: str, last_check: str, last_updated: str, tooltip: str, connection: callable):
@@ -9,6 +9,7 @@ class UpdatesFrame(QFrame):
         self.setLayout(self.main_layout)
         
         self.label = QLabel(label)
+        self.label.setObjectName('label')
         self.main_layout.addWidget(self.label)
         
         self.main_layout.addStretch(1)
