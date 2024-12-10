@@ -127,7 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     json.dump(repo_data, f, indent=4)
                     f.truncate()
                     self.update_repo_buttons()
-                    self.update_updates()
+                    self.check_for_updates()
 
             except FileNotFoundError:
                 logging.info("Creating repos.json")
@@ -478,7 +478,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 json.dump(data, f, indent=4)
                 f.truncate()
                 self.update_repo_buttons()
-                self.update_updates()
+                self.check_for_updates()
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error deleting repository: {e}")
             logging.error(f"Error deleting repository: {e}")
