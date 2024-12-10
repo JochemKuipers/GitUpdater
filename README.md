@@ -107,7 +107,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Settings Window
 
-![Settings Window](assets/screenshots/settings.png)
+![Settings Window](assets/screenshots/settingsgeneral.png)
+![Settings Window](assets/screenshots/SettingsRepositories.png)
 
 ### Update Available
 
