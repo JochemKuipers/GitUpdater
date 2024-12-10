@@ -55,9 +55,6 @@ class MainWindow(QtWidgets.QMainWindow):
             with open('src/config_template.json', 'r') as template:
                 with open(self.config_path, 'w') as f:
                     f.write(template.read())
-        with open(self.config_path, 'r') as f:
-            self.config = json.load(f)
-
         if not os.path.exists(self.repos_path):
             logging.info("Creating repos.json")
             with open(self.repos_path, 'w') as f:
@@ -186,13 +183,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         
     def get_setting(self, setting_name, value=None):
-        """Helper method to get settings from config.json"""
-        for category in self.config.get('categories', []):
-            if 'General' in category:
-                settings = category['General'][0]['settings'][0]
-                if setting_name in settings:
-                    return settings[setting_name][0].get('value', value)
-        raise ValueError(f"Setting {setting_name} not found")
+        with open(self.config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            for category in data['categories']:
+                if 'General' in category:
+                    settings = category['General'][0]['settings'][0]
+                    if setting_name in settings:
+                        return settings[setting_name][0].get('value', value)
+            raise ValueError(f"Setting {setting_name} not found")
         
     class UpdateWorker(QtCore.QObject):
         # Signals
@@ -271,6 +269,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return version_pattern.sub('*', package_name)
         
     def check_for_updates(self):
+        self.settingsButton.setEnabled(False)
         if self.updatesScrollAreaContentsLayout.count() > 0:
             self.clear_layout(self.updatesScrollAreaContentsLayout)
         # Create thread and worker
@@ -285,6 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_worker.finished.connect(self.update_thread.quit)
         self.update_worker.finished.connect(self.update_worker.deleteLater)
         self.update_worker.finished.connect(self.updatesScrollAreaContentsLayout.addStretch)
+        self.update_worker.finished.connect(lambda: self.settingsButton.setEnabled(True))
         self.update_thread.finished.connect(self.update_thread.deleteLater)
         
         self.update_worker.update_found.connect(self.update_updates_ui)
