@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 import os
@@ -581,11 +582,17 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Error", f"Error clearing layout: {e}")
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    app.setStyleSheet('''
-        QToolTip {
-            color: #FFFFFF;
-        }
-    ''')
-    window = MainWindow()
-    sys.exit(app.exec())
+    parser = argparse.ArgumentParser(description="GitUpdater")
+    parser.add_argument("--headless", action="store_true", help="Run headless update check")
+    args = parser.parse_args()
+    
+    if args.headless:
+        from src.updater import run_headless_updates
+        git = GitHub()
+        logger.info("Running headless updates")
+        sys.exit(run_headless_updates(git, get_config_path('repos.json')))
+    else:
+        app = QtWidgets.QApplication(sys.argv)
+        window = MainWindow()
+        window.show()
+        sys.exit(app.exec())
