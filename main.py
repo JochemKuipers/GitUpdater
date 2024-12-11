@@ -15,23 +15,12 @@ from components.trayicon import SystemTrayIcon
 
 from src.githubAuth import GitHub, clean_github_link
 from src.settings import SettingsWindow
-import src.updater
+from src.updater import DownloadWorker
+from src.utils import get_config_path, get_setting, get_setting_repo
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
 
-def get_config_dir():
-    """Get user config directory"""
-    config_dir = os.path.join(
-        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
-        'gitupdater'
-    )
-    os.makedirs(config_dir, exist_ok=True)
-    return config_dir
-
-def get_config_path(filename):
-    """Get full path for a config file"""
-    return os.path.join(get_config_dir(), filename)
 
 def resource_path(relative_path):
     """Get absolute path to resource for both dev and packaged versions"""
@@ -103,10 +92,10 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Error", f"Error loading repositories: {e}")
             logging.error(f"Error loading repositories: {e}")
         
-        if self.get_setting('check_updates', True):
+        if get_setting(self.config_path,'check_updates', True):
             self.check_for_updates()
                 
-        if self.get_setting('start_minimized', True):
+        if get_setting(self.config_path, 'start_minimized', True):
             self.hide()
         else: 
             self.show()
@@ -198,7 +187,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.deleteLater()
             
     def closeEvent(self, event):
-        if self.get_setting('minimize_to_tray', True):
+        if get_setting(self.config_path, 'minimize_to_tray', True):
             self.minimizeEvent(event)
         else:
             result = QtWidgets.QMessageBox.question(
@@ -231,15 +220,7 @@ class MainWindow(QtWidgets.QMainWindow):
             event.accept()
 
         
-    def get_setting(self, setting_name, value=None):
-        with open(self.config_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            for category in data['categories']:
-                if 'General' in category:
-                    settings = category['General'][0]['settings'][0]
-                    if setting_name in settings:
-                        return settings[setting_name][0].get('value', value)
-            raise ValueError(f"Setting {setting_name} not found")
+
         
     class UpdateWorker(QtCore.QObject):
         # Signals
@@ -354,28 +335,78 @@ class MainWindow(QtWidgets.QMainWindow):
                 connection=lambda: self.update_repo(data['name'], data['asset_url'], data['path'], data['new_version'])
             )
             self.updatesScrollAreaContentsLayout.addWidget(frame)
+            
+            auto_update = get_setting_repo(self.repos_path, data['name'], 'auto_update')
+            if auto_update:
+                self.update_repo(data['name'], data['asset_url'], data['path'], data['new_version'])
         else:
             QtWidgets.QMessageBox.information(self, "No Updates", "No updates available.")                       
             
     def update_repo(self, name, url, path, version):
+        # Store references
+        self.download_thread = QtCore.QThread()
+        self.download_worker = DownloadWorker(url, path)
+        
+        # Move worker to thread
+        self.download_worker.moveToThread(self.download_thread)
+        
+        frame = None
+        for i in range(self.updatesScrollAreaContentsLayout.count()):
+            widget = self.updatesScrollAreaContentsLayout.itemAt(i).widget()
+            if isinstance(widget, UpdatesFrame) and widget.label.text() == name:
+                frame = widget
+                break
+        
+        # Connect signals
+        self.download_thread.started.connect(self.download_worker.run)
+        self.download_worker.progress.connect(lambda p: logger.info(f"Download progress: {p}%"))
+        
+        def cleanup():
+            if frame:
+                self.updatesScrollAreaContentsLayout.removeWidget(frame)
+            self.update_version(name, version)
+        
+        self.download_worker.finished.connect(cleanup)
+        self.download_worker.finished.connect(self.download_thread.quit)
+        self.download_worker.finished.connect(self.download_worker.deleteLater)
+        self.download_thread.finished.connect(self.download_thread.deleteLater)
+        
+        # Handle errors
+        self.download_worker.error.connect(
+            lambda e: QtWidgets.QMessageBox.warning(self, "Error", f"Download error: {e}")
+        )
+        
+        # Start download
+        self.download_thread.start()
+
+    def update_version(self, name, version):
+        """Update version in repos.json after successful download"""
         try:
-            src.updater.update(url, path)
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Error updating {name}: {e}")
-            logging.error(f"Error updating {name}: {e}")
-            return
-        
-        with open(self.repos_path, 'r+', encoding='utf-8') as f:
-            data = json.load(f)
-            repo = [repo for repo in data.get('repos', []) if repo['name'] == name][0]
-            repo['version'] = version
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+            with open(self.repos_path, 'r+', encoding='utf-8') as f:
+                data = json.load(f)
+                repos = data.get('repos', [])
+                for repo in repos:
+                    if repo['name'] == name:
+                        repo['version'] = version
+                        break
+
+                data['repos'] = repos
+                f.seek(0)
+                json.dump(data, f, indent=4)
+                f.truncate()
+                
             self.update_repo_buttons()
-        
-        QtWidgets.QMessageBox.information(self, "Repository Updated", "The repository has been updated.")
-        logging.info(f"Repository {name} updated successfully")
+            QtWidgets.QMessageBox.information(
+                self, "Update Complete", 
+                f"Repository {name} updated successfully"
+            )
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(
+                self, "Error", 
+                f"Error updating version: {e}"
+            )
+            logging.error(f"Error updating version: {e}")
         
     def update_repo_buttons(self):
         logger.info("Updating repository buttons")
@@ -390,13 +421,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 button = ClickableElidedLabel(repo['name'], repo['url'], connection=make_connection(repo['url']))
                 button.setObjectName(repo['name'])
                 button.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
-                button.customContextMenuRequested.connect(lambda: self.context_menu(QtGui.QCursor.pos()))
+                button.customContextMenuRequested.connect(self.context_menu)
                 self.repoButtonsScrollAreaContentsLayout.addWidget(button)
 
             self.repoButtonsScrollAreaContentsLayout.addStretch()
 
 
-    def context_menu(self, pos):
+    def context_menu(self):
         menu = QtWidgets.QMenu(self)
         button = self.sender()
         repo_name = button.objectName()
