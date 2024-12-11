@@ -1,5 +1,6 @@
 import os
 import json
+import platform
 
 def get_setting(config_path, setting_name, value=None):
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -22,10 +23,12 @@ def get_setting_repo(repos_path, repo_name, setting_name):
     
 def get_config_dir():
     """Get user config directory"""
-    config_dir = os.path.join(
-        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
-        'gitupdater'
-    )
+    if platform.system() == 'Windows':
+        config_dir = os.path.join(os.getenv('APPDATA'), 'GitUpdater')
+    elif platform.system() == 'Linux':
+        config_dir = os.path.join(os.getenv('HOME'), '.config', 'GitUpdater')
+    else:
+        raise OSError(f"Unsupported OS: {platform.system()}")
     os.makedirs(config_dir, exist_ok=True)
     return config_dir
 
