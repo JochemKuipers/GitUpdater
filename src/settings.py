@@ -5,22 +5,11 @@ from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from components.settingframe import SettingsFrame
 import logging
 from src.startupservices import manage_startup_service
+from src.utils import get_config_path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
 
-def get_config_dir():
-    """Get user config directory"""
-    config_dir = os.path.join(
-        os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config')),
-        'gitupdater'
-    )
-    os.makedirs(config_dir, exist_ok=True)
-    return config_dir
-
-def get_config_path(filename):
-    """Get full path for a config file"""
-    return os.path.join(get_config_dir(), filename)
 
 class SettingsLoader(QObject):
     # Add signal for widget data
@@ -31,11 +20,13 @@ class SettingsLoader(QObject):
 
     def __init__(self, settings_window):
         super().__init__()
-        self.window = settings_window
+        self.settings_window = settings_window  # Correct assignment
+        self.config_path = get_config_path('config.json')
+        self.repos_path = get_config_path('repos.json')
 
     def _load_general_category(self, category: str):
         try:
-            with open(self.window.config_path, 'r') as f:
+            with open(self.config_path, 'r') as f:
                 config = json.load(f)
 
             categories = config.get('categories', [])
@@ -58,9 +49,9 @@ class SettingsLoader(QObject):
         except Exception as e:
             self.error.emit(f"Error loading general settings: {str(e)}")
 
-    def _load_repo_category(self, category: str):
+    def _load_repo_category(self):
         try:
-            with open(self.window.repos_path, 'r') as f:
+            with open(self.repos_path, 'r') as f:
                 repos_data = json.load(f)
             if 'repos' in repos_data and repos_data['repos']:
                 self.repo_data_ready.emit(repos_data)
@@ -70,7 +61,7 @@ class SettingsLoader(QObject):
     def run(self):
         try:
             # Load categories from config file
-            with open(self.window.config_path, 'r') as f:
+            with open(self.config_path, 'r') as f:
                 config = json.load(f)
                 
             # Get list of categories from config
@@ -89,7 +80,7 @@ class SettingsLoader(QObject):
                     
                 processed.add(category)
                 if category == 'Repositories':
-                    self._load_repo_category(category)
+                    self._load_repo_category()
                 else:
                     self._load_general_category(category)
 
