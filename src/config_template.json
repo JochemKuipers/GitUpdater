@@ -54,9 +54,17 @@
                             "check_updates": [
                                 {
                                     "type": "checkbox",
-                                    "label": "Check for Updates",
+                                    "label": "Check for Repo Updates on Start",
                                     "key": "check_updates",
                                     "default": true
+                                }
+                            ],
+                            "check_update_app": [
+                                {
+                                    "type": "button",
+                                    "label": "",
+                                    "key": "check_update_app",
+                                    "default": "Check for Update App"
                                 }
                             ]
                         }

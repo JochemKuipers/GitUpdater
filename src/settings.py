@@ -100,7 +100,7 @@ class SettingsWindow(QtWidgets.QMainWindow):
 
         self.save_button = QtWidgets.QPushButton("Save")
         self.save_button.clicked.connect(self.save_settings)
-        self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.TopRightCorner)
+        self.tab_widget.setCornerWidget(self.save_button, QtCore.Qt.Corner.BottomRightCorner)
         self.assets = assets
         
         self.config_path = get_config_path('config.json')

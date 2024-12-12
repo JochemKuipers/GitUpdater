@@ -5,7 +5,7 @@ import logging
 import requests
 import patoolib
 from PyQt6.QtCore import QObject, pyqtSignal, QThread, QTimer
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from src.utils import get_config_path, get_setting_repo
 from src.githubAuth import GitHub
 
@@ -141,3 +141,75 @@ def run_headless_updates(git: GitHub, repos_path: str):
         logger.error(f"Error in headless update: {e}")
         quit_app()
         return 1
+    
+def check_for_app_update():
+    """Check if the application is up to date"""
+    try:
+        git = GitHub()
+        latest_release = git.get_latest_release_url("https://github.com/JochemKuipers/GitUpdater")
+        asset, _ = git.find_correct_asset_in_list(latest_release)
+        
+        if asset:
+            version = git.get_asset_version(asset=asset, page=latest_release)
+            with open(os.path.join(os.path.dirname(__file__), "version"), 'r') as f:
+                old_version = f.read().strip()
+            if version != old_version:
+                update_app(asset.browser_download_url)
+            else:
+                logger.info("No update available")
+                QMessageBox.information(None, "No Updates", "You are already using the latest version.")
+        else:
+            logger.error("No assets found")
+            QMessageBox.warning(None, "Error", "No assets found")
+    except Exception as e:
+        logger.error(f"Error checking for updates: {e}")
+        QMessageBox.warning(None, "Error", f"Error checking for updates: {e}")
+def update_app(download_url, parent=None):
+    """Update the application if an update is available"""
+    try:
+        if download_url:
+            def log_progress(p):
+                logger.info(f"Download progress: {p}%")
+                
+            def log_error(e):
+                logger.error(f"Download error: {e}")
+                QMessageBox.warning(parent, "Error", f"Download error: {e}")
+                
+            def on_worker_finished():
+                logger.info("Worker finished")
+                update_file = os.path.join(os.path.expanduser("~"), "GitUpdater_update.zip")
+                try:
+                    patoolib.extract_archive(update_file, outdir=os.path.dirname(__file__))
+                    os.remove(update_file)
+                    QMessageBox.information(parent, "Update", "The application has been updated. Please restart the application.")
+                except Exception as e:
+                    logger.error(f"Error applying update: {e}")
+                    QMessageBox.warning(parent, "Error", f"Error applying update: {e}")
+            
+            worker = DownloadWorker(download_url, os.path.expanduser("~"))
+            thread = QThread()
+            
+            worker.moveToThread(thread)
+            thread.started.connect(worker.run)
+            worker.progress.connect(log_progress)
+            worker.error.connect(log_error)
+            worker.finished.connect(on_worker_finished)
+            worker.finished.connect(worker.deleteLater)
+            thread.finished.connect(thread.deleteLater)
+            
+            thread.start()
+        else:
+            logger.info("No update available")
+            QMessageBox.information(parent, "No Updates", "You are already using the latest version.")
+    except Exception as e:
+        logger.error(f"Error updating application: {e}")
+        QMessageBox.warning(parent, "Error", f"Error updating application: {e}")
+        
+def update_app_version(new_version):
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "version"), 'w') as f:
+            f.write(new_version)
+        logger.info(f"Updated version to {new_version}")
+    except Exception as e:
+        logger.error(f"Error updating version: {e}")
+        QMessageBox.warning(None, "Error", f"Error updating version: {e}")

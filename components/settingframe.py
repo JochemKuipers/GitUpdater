@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QCheckBox, QComboBox, QFileDialog, QPushButton
 from PyQt6.QtCore import Qt
+from src.updater import check_for_app_update
 
 
 class SettingsFrame(QFrame):
@@ -22,7 +23,6 @@ class SettingsFrame(QFrame):
             self.input = QCheckBox()
             self.input.setChecked(bool(default_value))
             self.main_layout.addWidget(self.input)
-
         elif setting_type == 'select':
             self.input = QComboBox()
             if options:
@@ -61,6 +61,10 @@ class SettingsFrame(QFrame):
             self.input.setCursorPosition(0)
             self.input.setValidator(Qt.QIntValidator())
             self.main_layout.addWidget(self.input, stretch=3)
+        elif setting_type == 'button':
+            self.input = QPushButton(default_value)
+            self.input.clicked.connect(lambda: check_for_app_update())
+            self.main_layout.addWidget(self.input)
             
 
         
