@@ -59,7 +59,7 @@
                                     "default": "Never",
                                     "options": [
                                         {
-                                            "label": "Never",
+                                            "label": "Only on Start",
                                             "value": "0"
                                         },
                                         {
