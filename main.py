@@ -94,10 +94,13 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Error", f"Error loading repositories: {e}")
             logging.error(f"Error loading repositories: {e}")
         
-        if get_setting(self.config_path,'check_updates', True):
-            self.check_for_updates()
+        interval = int(get_setting(self.config_path, 'check_updates'))
+        if interval > 0:
+            scheduler = QtScheduler()
+            scheduler.add_job(self.check_for_updates, 'interval', hours=interval)
+            scheduler.start()
                 
-        if get_setting(self.config_path, 'start_minimized', True):
+        if get_setting(self.config_path, 'start_minimized'):
             self.hide()
         else: 
             self.show()
@@ -189,7 +192,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dialog.deleteLater()
             
     def closeEvent(self, event):
-        if get_setting(self.config_path, 'minimize_to_tray', True):
+        if get_setting(self.config_path, 'minimize_to_tray'):
             self.minimizeEvent(event)
         else:
             result = QtWidgets.QMessageBox.question(

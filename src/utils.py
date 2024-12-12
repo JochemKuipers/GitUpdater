@@ -2,14 +2,20 @@ import os
 import json
 import platform
 
-def get_setting(config_path, setting_name, value=None):
+def get_setting(config_path, setting_name):
     with open(config_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
         for category in data['categories']:
             if 'General' in category:
                 settings = category['General'][0]['settings'][0]
-                if setting_name in settings:
-                    return settings[setting_name][0].get('value', value)
+                if setting_name in settings and settings[setting_name][0]['type'] != 'select':
+                    return settings[setting_name][0]['default']
+                else:
+                    setting = settings[setting_name][0]
+                    default = setting.get('default')
+                    for option in setting['options']:
+                        if option['label'] == default:
+                            return option['value']
         raise ValueError(f"Setting {setting_name} not found")
 
 def get_setting_repo(repos_path, repo_name, setting_name):

@@ -10,7 +10,7 @@
                                     "type": "select",
                                     "label": "Theme",
                                     "key": "theme",
-                                    "value": "system default",
+                                    "default": "System Default",
                                     "options": [
                                         {
                                             "label": "System Default",
