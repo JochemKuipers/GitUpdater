@@ -66,6 +66,7 @@ For repositories with multiple assets, GitUpdater will:
 
 - Python 3.8+
 - PyQt6
+- Cronie (linux only)
 - GitHub API access
 - Internet connection
 
