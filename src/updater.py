@@ -131,7 +131,8 @@ def run_headless_updates(git: GitHub, repos_path: str):
                             repo['version'] = version
                             with open(repos_path, 'w') as f:
                                 json.dump(data, f, indent=4)
-                                
+                else:
+                    logger.info(f"Auto update disabled for {repo['name']}. Skipping")
         logger.info("All updates completed")
         QTimer.singleShot(0, quit_app)
         return app.exec()
