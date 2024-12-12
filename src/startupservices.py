@@ -5,6 +5,47 @@ import platform
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
 
+def enable_task_scheduler():
+    """Enable task scheduler"""
+    if platform.system() == 'Windows':
+        return _enable_task_scheduler_windows()
+    elif platform.system() == 'Linux':
+        return _enable_task_scheduler_linux()
+    else:
+        logging.error(f"Unsupported platform: {platform.system()}")
+        return False
+    
+def _enable_task_scheduler_windows():
+    """Enable Windows task scheduler"""
+    try:
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        task_name = 'GitUpdater'
+        task_path = os.path.join(app_dir, 'main.py')
+        task_trigger = 'AtLogon'
+        task_cmd = f'python "{task_path}" --headless'
+        
+        os.system(f'schtasks /create /tn {task_name} /tr "{task_cmd}" /sc {task_trigger} /ru INTERACTIVE')
+        return True
+    except Exception as e:
+        logging.error(f"Error enabling task scheduler: {e}")
+        return False
+    
+def _enable_task_scheduler_linux():
+    """Enable Linux task scheduler using cron"""
+    try:
+        cron_job = '@reboot /usr/bin/python3 {} --headless'.format(os.path.abspath(os.path.join(os.path.dirname(__file__), 'main.py')))
+        cron_file = os.path.expanduser('~/.cronjob_gitupdater')
+        
+        with open(cron_file, 'w') as f:
+            f.write(cron_job + '\n')
+        
+        os.system(f'crontab {cron_file}')
+        return True
+    except Exception as e:
+        logging.error(f"Error enabling task scheduler: {e}")
+        return False
+    
+
 def manage_startup_service(enable: bool) -> bool:
     """Manage startup service"""
     if platform.system() == 'Linux':
