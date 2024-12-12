@@ -93,6 +93,7 @@ def run_headless_updates(git: GitHub, repos_path: str):
             with open(repos_path, 'w') as f:
                 json.dump({"repos": []}, f, indent=4)
             logger.info(f"Created default repos.json at {repos_path}")
+            quit_app()
         
         with open(repos_path, 'r') as f:
             data = json.load(f)
