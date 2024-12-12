@@ -1,7 +1,6 @@
 import os
 import logging
 import platform
-import winreg
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filename='gitupdater.log', filemode='w')
 logger = logging.getLogger(__name__)
@@ -18,6 +17,7 @@ def manage_startup_service(enable: bool) -> bool:
     
 def _manage_startup_service_windows(enable: bool) -> bool:
     """Manage Windows startup service"""
+    import winreg
     try:
         app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
