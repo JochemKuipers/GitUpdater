@@ -87,6 +87,13 @@ def run_headless_updates(git: GitHub, repos_path: str):
         thread.quit()
     
     try:
+        # Check if repos.json exists
+        if not os.path.exists(repos_path):
+            logger.error(f"repos.json not found at {repos_path}")
+            with open(repos_path, 'w') as f:
+                json.dump({"repos": []}, f, indent=4)
+            logger.info(f"Created default repos.json at {repos_path}")
+        
         with open(repos_path, 'r') as f:
             data = json.load(f)
             repos = data.get('repos', [])
@@ -112,12 +119,13 @@ def run_headless_updates(git: GitHub, repos_path: str):
                             thread.started.connect(worker.run)
                             worker.progress.connect(log_progress)
                             worker.error.connect(log_error)
-                            worker.finished.connect(on_worker_finished)  # Changed this line
+                            worker.finished.connect(on_worker_finished)
                             worker.finished.connect(worker.deleteLater)
+                            thread.finished.connect(thread.deleteLater)
                             
                             thread.start()
-                            while thread.isRunning():  # Changed this line
-                                app.processEvents()  # Process events while waiting
+                            while thread.isRunning():
+                                app.processEvents()
                             
                             repo['version'] = version
                             with open(repos_path, 'w') as f:
