@@ -205,9 +205,9 @@ class SettingsWindow(QtWidgets.QMainWindow):
                 setting_type = str(setting.get('type', 'text'))
                 default_value = setting.get('value', setting.get('default', ''))
                 
-                options = []
+                options = {}
                 if setting_type == 'select' and 'options' in setting:
-                    options = [opt.get('value', '') for opt in setting.get('options', [])]
+                    options = setting['options']
 
                 setting_frame = SettingsFrame(
                     label=label,

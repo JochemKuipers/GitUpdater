@@ -26,7 +26,8 @@ class SettingsFrame(QFrame):
         elif setting_type == 'select':
             self.input = QComboBox()
             if options:
-                self.input.addItems(options)
+                for option in options:
+                    self.input.addItem(option['label'], option['value'])
             if default_value:
                 self.input.setCurrentText(str(default_value))
             self.main_layout.addWidget(self.input, stretch=3)

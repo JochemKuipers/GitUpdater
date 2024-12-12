@@ -5,6 +5,7 @@ import os
 from PyQt6 import QtWidgets, uic, QtCore, QtGui
 from datetime import datetime
 import logging
+from apscheduler.schedulers.qt import QtScheduler
 
 # noinspection PyUnresolvedReferences
 from assets import resources_rc
