@@ -147,10 +147,9 @@ class SettingsWindow(QtWidgets.QMainWindow):
                 }
                 
                 # Format options correctly
-                asset_options = ["Auto Detect"]
+                asset_options = [{"label": "Auto Detect", "value": "Auto Detect"}]
                 if repo['name'] in self.assets:
-                    asset_options.extend([asset.name for asset in self.assets[repo['name']]])
-                    
+                    asset_options.extend([{"label": asset.name, "value": asset.name} for asset in self.assets[repo['name']]])
                 settings_map = {
                     'path': ('Path', 'path'),
                     'url': ('URL', 'url'),

@@ -99,6 +99,7 @@ class MainWindow(QtWidgets.QMainWindow):
             scheduler = QtScheduler()
             scheduler.add_job(self.check_for_updates, 'interval', hours=interval)
             scheduler.start()
+        self.check_for_updates()
                 
         if get_setting(self.config_path, 'start_minimized'):
             self.hide()

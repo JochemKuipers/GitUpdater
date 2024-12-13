@@ -143,7 +143,7 @@
                                     "type": "text",
                                     "label": "Correct Package Name",
                                     "key": "correct_package_name",
-                                    "value": "",
+                                    "default": "",
                                     "placeholder": "Correct Package Name"
                                 }
                             ],
