@@ -1,6 +1,7 @@
-PyQt6~=6.8.0
-PyQt6-sip~=13.9.0
-PyGithub~=2.5.0
-patool~=3.1.0
-python-dotenv~=1.0.1
-apscheduler~=3.11.0
+PyQt6~=6.10.2
+PyQt6-sip~=13.11.1
+PyGithub~=2.9.0
+patool~=4.0.4
+python-dotenv~=1.2.2
+apscheduler~=3.11.2
+platformdirs~=4.9.4
